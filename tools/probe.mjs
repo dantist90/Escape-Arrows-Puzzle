@@ -95,7 +95,8 @@ try {
   await page.evaluate(() => QA.tap('win_next')); await step(page, 1.5);
   st = await state(page);
   check('Next opens level 3', st.scene === 'level' && st.board.n === 3, `${st.scene} ${st.board && st.board.n}`);
-  await page.evaluate(() => QA.tap('bar_back')); await step(page, 1.5);
+  check('no back button in a level', await page.evaluate(() => !QA.hits().some((h) => h.id === 'bar_back')));
+  await page.evaluate(() => QA.tap('bar_gear')); await step(page, 0.1); await page.evaluate(() => QA.tap('set_exit')); await step(page, 1.5);
   st = await state(page); ev = st.events;
   check('quit level 3 -> lobby, level/3/fail sent once', st.scene === 'lobby' && ev.filter((e) => e === 'level / 3 / fail').length === 1, st.scene);
   // the biggest hand level on a small phone and on PC
@@ -176,6 +177,8 @@ try {
   await page.evaluate(() => QA.tap('tour')); await step(page, 0.5); await page.evaluate(() => QA.tap('tour')); await step(page, 1.5);
   st = await state(page);
   check('Tournament screen opens', st.scene === 'tour' && !st.tour, st.scene);
+  { const hits = await page.evaluate(() => QA.hits()), fb = hits.find((r) => r.id === 'foot_back'), j = hits.find((r) => r.id === 'tour_join');
+    check('Tournament: Back at the bottom left of Join', !!fb && !!j && fb.x < j.x && !overlap(fb, j) && !hits.some((r) => r.id === 'bar_back')); }
   await page.screenshot({ path: path.join(shots, 'tour_info_390x844.png') });
   await page.evaluate(() => QA.tap('tour_join')); await step(page, 0.2);
   st = await state(page);
@@ -257,7 +260,9 @@ try {
     check(`${w}x${h}: tasks window fits`, hits.every((r) => r.id === 'modal_block' || inside(r, w, h)), hits.filter((r) => !inside(r, w, h)).map((r) => r.id).join(' '));
     for (const sc of ['room', 'skins', 'album']) { await page.evaluate((sc) => { AP.game.modal = null; QA.goto(sc); }, sc); await step(page, 0.2);
       hits = await page.evaluate(() => QA.hits()); const bad = hits.filter((r) => !inside(r, w, h));
-      check(`${w}x${h}: ${sc} screen fits`, bad.length === 0, bad.map((r) => r.id).join(' ')); await page.screenshot({ path: path.join(shots, `${sc}_${w}x${h}.png`) }); }
+      check(`${w}x${h}: ${sc} screen fits`, bad.length === 0, bad.map((r) => r.id).join(' '));
+      const fb = hits.find((r) => r.id === 'foot_back'), main = hits.find((r) => r.id === 'room_buy' || r.id === 'room_next');
+      check(`${w}x${h}: ${sc} Back at the bottom, none on top`, !!fb && fb.y > h * 0.6 && !hits.some((r) => r.id === 'bar_back') && (!main || (!overlap(fb, main) && fb.x < main.x))); await page.screenshot({ path: path.join(shots, `${sc}_${w}x${h}.png`) }); }
     await page.evaluate(() => { AP.game.modal = { type: 'tasks' }; }); await step(page, 0.1);
   }
   await page.evaluate(() => { AP.game.modal = null; }); await page.setViewport({ width: 390, height: 844 }); await page.evaluate(() => window.dispatchEvent(new Event('resize')));

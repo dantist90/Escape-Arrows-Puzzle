@@ -10,7 +10,7 @@
     en: { tour_title: 'Tournament', tour_info: '5 levels · 20 players · win arrows for the Roadmap!', join: 'Join', you: 'You', tour_level: 'Level {n} of 5',
       play_tour: 'Play level {n}', tour_points: 'Points', tour_done: 'Tournament over!', place_n: 'Place {n}', new_tour: 'New tournament', give_up: 'Finish level',
       pts_arrows: 'Arrows', pts_hearts: 'Hearts', pts_time: 'Speed', cont_tour: 'Continue', coach_tour: 'The Tournament is open! Here is a free ticket — beat the other players!', coach_roadmap: 'Arrows from tournaments fill the Roadmap. Every stop is a gift!' },
-    ru: { tour_title: 'Турнир', tour_info: '5 уровней · 20 игроков · стрелочки для Пути наград!', join: 'Участвовать', you: 'Ты', tour_level: 'Уровень {n} из 5',
+    ru: { tour_title: 'Турнир', tour_info: '5 уровней · 20 игроков · стрелочки для Пути наград!', join: 'Вход', you: 'Ты', tour_level: 'Уровень {n} из 5',
       play_tour: 'Играть уровень {n}', tour_points: 'Очки', tour_done: 'Турнир окончен!', place_n: '{n} место', new_tour: 'Новый турнир', give_up: 'Завершить уровень',
       pts_arrows: 'Стрелки', pts_hearts: 'Сердца', pts_time: 'Скорость', cont_tour: 'Дальше', coach_tour: 'Турнир открыт! Вот бесплатный билет — обгони других игроков!', coach_roadmap: 'Стрелочки из турниров заполняют Путь наград. Каждая остановка — подарок!' },
     es: { tour_title: 'Torneo', tour_info: '5 niveles · 20 jugadores · ¡gana flechas para la Ruta!', join: 'Unirse', you: 'Tú', tour_level: 'Nivel {n} de 5',
@@ -93,7 +93,7 @@
     enter(arg) { AP.poki.gameplayStop(); if (arg && arg.final) AP.game.modal = { type: 'tourEnd', ...arg.final, t: 0 }; }, // final results of a finished run
     draw(ctx, w, h) {
       const L = AP.ui.layout, s = L.s, t = AP.game.t; AP.art.background(ctx, w, h, t); const r = T.run();
-      AP.game.topBar(ctx, { back: () => { AP.audio.click(); AP.game.open('lobby'); }, pills: w < 430 ? ['tickets'] : ['tickets', 'arrows'], title: AP.t('tour_title') }); // narrow phones: room for the title
+      AP.game.topBar(ctx, { pills: w < 430 ? ['tickets'] : ['tickets', 'arrows'], title: AP.t('tour_title') }); // narrow phones: room for the title
       const st = L.stage, pw = Math.min(st.w - 24 * s, 480 * s), px = st.x + st.w / 2 - pw / 2, py = st.y + 8 * s, ph = L.foot.y - py - 8 * s;
       AP.art.panel(ctx, px, py, pw, ph, 22 * s, AP.art.YELLOW);
       if (!r) { S.info(ctx, px, py, pw, ph, s, t); }
@@ -104,7 +104,7 @@
         S.drawTable(ctx, px + 12 * s, py + 64 * s, pw - 24 * s, ph - 76 * s, s);
       }
       // bottom buttons
-      const ft = L.foot, bh = Math.min(ft.h - 20 * s, 64 * s, h * 0.12), by = ft.y + (ft.h - bh) / 2, maxW = Math.min(ft.w - 36 * s, 560 * s), bx = ft.x + ft.w / 2 - maxW / 2;
+      const F = AP.game.footBar(ctx, 640 * s), bh = F.h, by = F.y, maxW = F.w, bx = F.x;
       if (!r) {
         const bw = (maxW - 12 * s) / 2, cost = C().ticketCost;
         AP.ui.button('tour_join', bx, by, bw, bh, AP.t('join') + '  ' + cost, { color: AP.art.YELLOW, size: Math.min(20 * s, bh * 0.34), icon: (c, ix, iy) => AP.art.currency(c, 'tickets', ix, iy, 11 * s), iconRight: true, onClick: () => T.join(false) });

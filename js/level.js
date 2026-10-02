@@ -104,7 +104,7 @@
     draw(ctx, w, h) {
       const L = AP.ui.layout, s = L.s; AP.art.background(ctx, w, h, AP.game.t);
       const R = S.rects(); if (B().cur) { B().fit(R.board); B().draw(ctx); }
-      AP.game.topBar(ctx, { back: () => { AP.audio.click(); AP.game.open('lobby'); }, pills: ['coins'], title: S.tour ? AP.t('tour_title') + ' ' + (S.k + 1) + '/' + AP.CONFIG.tournament.levels : AP.t('level_n', { n: S.n }) });
+      AP.game.topBar(ctx, { pills: ['coins'], /* no back button in a level: leaving is in the settings window (Menu) */ title: S.tour ? AP.t('tour_title') + ' ' + (S.k + 1) + '/' + AP.CONFIG.tournament.levels : AP.t('level_n', { n: S.n }) });
       S.drawHud(ctx, R.hud, s);
       if (B().cur && B().zoomable()) S.drawZoom(ctx, R.board, s);
       S.drawBoosters(ctx, R.foot || R.side, s, !R.foot);

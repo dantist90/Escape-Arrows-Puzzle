@@ -27,6 +27,14 @@
     onMove(x, y) { if (G.modal) return; const sc = G.scene(); if (sc && sc.onMove) sc.onMove(x, y); },
     onUp(x, y) { if (G.modal) return; const sc = G.scene(); if (sc && sc.onUp) sc.onUp(x, y); },
 
+    // ----- bottom bar of a section: a round Back button on the left, the rest of the row for the main button(s) -----
+    // returns the rect left for the main button(s) (w = 0 when there is no room); back defaults to the lobby
+    footBar(ctx, maxW, back) {
+      const L = AP.ui.layout, s = L.s, ft = L.foot; const bh = Math.min(ft.h - 20 * s, 64 * s, L.h * 0.12), by = ft.y + (ft.h - bh) / 2;
+      const w = Math.min(ft.w - 36 * s, maxW), x = ft.x + ft.w / 2 - w / 2;
+      AP.ui.iconButton('foot_back', x, by, bh, (c, cx, cy, r) => AP.art.icon(c, 'back', cx - r * 0.1, cy, r * 1.2), back || (() => { AP.audio.click(); G.open('lobby'); }), '#7a2cff');
+      return { x: x + bh + 12 * s, y: by, w: Math.max(0, w - bh - 12 * s), h: bh };
+    },
     // ----- top bar: optional back button (left), currency pills + gear (right) -----
     // o: { back: fn, pills: ['coins','tickets'], gear: true, title: str }; returns the bar rect
     topBar(ctx, o = {}) {
@@ -43,7 +51,8 @@
 
   // ----- settings: sound, music, language, version -----
   AP.modals.settings = function (ctx, w, h, m) {
-    const s = AP.ui.fitS(330); const pw = Math.min(w - 32 * s, 380 * s), ph = 330 * s, x = w / 2 - pw / 2, y = h / 2 - ph / 2;
+    // in a level the window also has a Menu button (the level has no back button): leaving counts as a fail / ends a tournament level
+    const inLevel = G.state === 'level'; const s = AP.ui.fitS(inLevel ? 400 : 330); const pw = Math.min(w - 32 * s, 380 * s), ph = (inLevel ? 400 : 330) * s, x = w / 2 - pw / 2, y = h / 2 - ph / 2;
     AP.art.panel(ctx, x, y, pw, ph, 24 * s);
     U.text(ctx, AP.t('settings'), w / 2, y + 34 * s, { size: 24 * s, color: '#fff', weight: 900, maxW: pw - 100 * s });
     AP.ui.iconButton('set_close', x + pw - 46 * s, y + 12 * s, 36 * s, (c, cx, cy, r) => AP.art.icon(c, 'close', cx, cy, r), () => { AP.audio.click(); G.modal = null; });
@@ -55,6 +64,8 @@
     row(1, AP.t('music'), AP.save.music ? 'ON' : 'OFF', sw('music'));
     const li = AP.LANGS.findIndex(l => l[0] === AP.lang);
     row(2, AP.t('language'), AP.LANGS[li][1], () => { AP.lang = AP.LANGS[(li + 1) % AP.LANGS.length][0]; AP.persist(); AP.audio.click(); });
+    if (inLevel) AP.ui.button('set_exit', x + 24 * s, y + 254 * s, pw - 48 * s, 50 * s, AP.t('lobby'), { color: AP.art.PINK, size: 18 * s, icon: (c, ix, iy) => AP.art.icon(c, 'back', ix, iy, 9 * s),
+      onClick: () => { G.modal = null; AP.game.open('lobby'); } });
     U.text(ctx, 'v' + AP.VERSION, w / 2, y + ph - 22 * s, { size: 12 * s, color: AP.art.INK_DIM, weight: 700 });
   };
 })();

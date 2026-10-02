@@ -30,12 +30,12 @@
     enter() { AP.poki.gameplayStop(); },
     draw(ctx, w, h) {
       const L = AP.ui.layout, s = L.s; AP.art.background(ctx, w, h, AP.game.t);
-      AP.game.topBar(ctx, { back: () => { AP.audio.click(); AP.game.open('lobby'); }, pills: ['stars'], title: AP.t('album') });
-      const st = L.stage, beaten = AP.save.level - 1;
+      AP.game.topBar(ctx, { pills: ['stars'], title: AP.t('album') });
+      const st = L.stage, beaten = AP.save.level - 1; AP.game.footBar(ctx, 540 * s);
       if (beaten <= 0) { U.text(ctx, AP.t('album_empty'), w / 2, st.y + st.h * 0.4, { size: 17 * s, color: AP.art.INK_DIM, weight: 800, maxW: st.w - 40 * s }); return; }
       U.text(ctx, AP.t('album_hint'), w / 2, st.y + 16 * s, { size: 13 * s, color: AP.art.INK_DIM, weight: 800, maxW: st.w - 30 * s });
       const ids = []; for (let n = beaten; n >= 1; n--) ids.push(n); // newest first
-      const rect = { x: st.x + 10 * s, y: st.y + 34 * s, w: st.w - 20 * s, h: L.h - L.safe.b - (st.y + 40 * s) };
+      const rect = { x: st.x + 10 * s, y: st.y + 34 * s, w: st.w - 20 * s, h: L.foot.y - (st.y + 38 * s) };
       AP.ui.grid('album', rect, ids, (n, x, y, sz, i, hh) => {
         const stars = AP.save.best[n] || 0, pressed = AP.ui.isHeld('alb_' + n);
         ctx.save(); if (pressed) ctx.translate(0, 2 * s);

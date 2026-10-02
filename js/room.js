@@ -90,14 +90,14 @@
     update(dt) { if (R.pop) { R.pop.t += dt; if (R.pop.t > 1) R.pop = null; } },
     draw(ctx, w, h) {
       const L = AP.ui.layout, s = L.s, r = R.st(); AP.art.background(ctx, w, h, AP.game.t);
-      AP.game.topBar(ctx, { back: () => { AP.audio.click(); AP.game.open('lobby'); }, pills: ['stars'], title: AP.t('room_n', { n: r.k + 1 }) });
+      AP.game.topBar(ctx, { pills: ['stars'], title: AP.t('room_n', { n: r.k + 1 }) });
       const st = L.stage, asp = L.portrait ? 0.8 : 1.15; // a taller room on phones, a wider one on PC
       const bw = Math.min(st.w - 24 * s, (L.foot.y - st.y - 50 * s) * asp, 640 * s), bh = bw / asp, bx = st.x + st.w / 2 - bw / 2, by = st.y + 34 * s;
       // progress: n of 8 pieces
       for (let i = 0; i < ITEMS.length; i++) { const dx = w / 2 + (i - 3.5) * 22 * s; ctx.fillStyle = i < r.steps ? AP.art.YELLOW : 'rgba(255,255,255,0.18)'; ctx.beginPath(); ctx.arc(dx, st.y + 16 * s, 6 * s, 0, Math.PI * 2); ctx.fill(); }
       AP.art.panel(ctx, bx - 4 * s, by - 4 * s, bw + 8 * s, bh + 8 * s, 22 * s, AP.art.PINK);
       R.draw(ctx, bx, by, bw, bh, r.k, r.steps, R.done() ? -1 : r.steps, AP.game.t);
-      const ft = L.foot, bh2 = Math.min(ft.h - 20 * s, 64 * s, h * 0.12), by2 = ft.y + (ft.h - bh2) / 2, w2 = Math.min(ft.w - 36 * s, 460 * s), bx2 = ft.x + ft.w / 2 - w2 / 2;
+      const F = AP.game.footBar(ctx, 540 * s), bx2 = F.x, by2 = F.y, w2 = F.w, bh2 = F.h;
       if (R.done()) AP.ui.button('room_next', bx2, by2, w2, bh2, AP.t('room_next'), { color: AP.art.GREEN, size: Math.min(21 * s, bh2 * 0.36), onClick: () => R.next() });
       else { const c = R.cost(r.steps); AP.ui.button('room_buy', bx2, by2, w2, bh2, AP.t('place') + ': ' + AP.t('it_' + ITEMS[r.steps]) + '  ' + c, { color: R.canBuy() ? AP.art.PINK : '#6f6596', size: Math.min(19 * s, bh2 * 0.34),
         icon: (cc, ix, iy) => AP.art.currency(cc, 'stars', ix, iy, 11 * s), iconRight: true, onClick: () => R.buy() }); }

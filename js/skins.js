@@ -49,10 +49,11 @@
     enter() { AP.poki.gameplayStop(); },
     draw(ctx, w, h) {
       const L = AP.ui.layout, s = L.s; AP.art.background(ctx, w, h, AP.game.t);
-      AP.game.topBar(ctx, { back: () => { AP.audio.click(); AP.game.open('lobby'); }, pills: ['coins'], title: AP.t('skins') });
+      AP.game.topBar(ctx, { pills: ['coins'], title: AP.t('skins') });
       const st = L.stage, tw = Math.min(st.w - 24 * s, 420 * s), tx = st.x + st.w / 2 - tw / 2, ty = st.y + 6 * s, th = 44 * s;
       [['arrows', 'sk_arrows'], ['bg', 'sk_bg']].forEach(([k, lbl], i) => AP.ui.button('sk_tab_' + k, tx + i * (tw / 2 + 4 * s), ty, tw / 2 - 4 * s, th, AP.t(lbl), { color: S.tab === k ? AP.art.PINK : '#4a2fa0', size: 16 * s, onClick: () => { S.tab = k; AP.audio.click(); } }));
-      const ids = Object.keys(S.tab === 'arrows' ? PAL : BGS); const rect = { x: st.x + 10 * s, y: ty + th + 10 * s, w: st.w - 20 * s, h: L.h - L.safe.b - (ty + th + 16 * s) };
+      AP.game.footBar(ctx, 540 * s);
+      const ids = Object.keys(S.tab === 'arrows' ? PAL : BGS); const rect = { x: st.x + 10 * s, y: ty + th + 10 * s, w: st.w - 20 * s, h: L.foot.y - (ty + th + 14 * s) };
       AP.ui.grid('sk_' + S.tab, rect, ids, (id, x, y, size, i, hh) => S.cell(ctx, id, x, y, size, hh, s), { cols: L.portrait ? 2 : 4, aspect: 1.15, maxSize: 200 * s });
     },
     cell(ctx, id, x, y, sz, hh, s) {
