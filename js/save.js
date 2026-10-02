@@ -13,7 +13,7 @@ AP.SAVE_DEFAULTS = () => ({
   skin: 'neon', bg: 'violet', owned: { neon: 1, violet: 1 }, // equipped arrow palette / background, owned cosmetics
   daily: null,         // daily tasks (stage 6)
   stats: {},           // counters for tasks and analytics
-  lang: null, sound: true, music: true,
+  lang: null, sound: true, music: false, // music is off by default (the player turns it on in Settings)
 });
 AP.save = AP.SAVE_DEFAULTS();
 AP.load = function () {
