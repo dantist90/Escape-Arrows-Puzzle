@@ -43,7 +43,7 @@
 
   // ----- settings: sound, music, language, version -----
   AP.modals.settings = function (ctx, w, h, m) {
-    const s = AP.ui.layout.s; const pw = Math.min(w - 32 * s, 380 * s), ph = 330 * s, x = w / 2 - pw / 2, y = h / 2 - ph / 2;
+    const s = AP.ui.fitS(330); const pw = Math.min(w - 32 * s, 380 * s), ph = 330 * s, x = w / 2 - pw / 2, y = h / 2 - ph / 2;
     AP.art.panel(ctx, x, y, pw, ph, 24 * s);
     U.text(ctx, AP.t('settings'), w / 2, y + 34 * s, { size: 24 * s, color: '#fff', weight: 900, maxW: pw - 100 * s });
     AP.ui.iconButton('set_close', x + pw - 46 * s, y + 12 * s, 36 * s, (c, cx, cy, r) => AP.art.icon(c, 'close', cx, cy, r), () => { AP.audio.click(); G.modal = null; });

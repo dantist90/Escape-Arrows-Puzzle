@@ -31,6 +31,8 @@ const server = await startServer(PORT, dist ? path.join(ROOT, 'dist') : ROOT);
 const shots = path.join(ROOT, 'shots'); fs.mkdirSync(shots, { recursive: true });
 const { browser, page, errors } = await openPage({ width: 390, height: 844 });
 const url = `http://127.0.0.1:${PORT}/?qa=1&reset=1&fast=1&nosdk=1`;
+// the local ad shim resolves on a real timer: wait for it (stepping game time does not advance it)
+const adWait = () => page.waitForFunction(() => !AP.poki.adRunning, { timeout: 8000, polling: 100 }).catch(() => {});
 try {
   check('EVENTS.md parsed', PATTERNS.length >= 10, String(PATTERNS.length));
   for (const [w, h] of SIZES) {
@@ -101,6 +103,67 @@ try {
     const offA = b.arrows.filter((a) => !(a.at[0] > 0 && a.at[1] > 0 && a.at[0] < w && a.at[1] < h)), offH = hits.filter((r) => r.id !== 'modal_block' && !inside(r, w, h));
     check(`${w}x${h}: level 5 arrows and widgets on screen`, !offA.length && !offH.length, offA.map((a) => a.id).concat(offH.map((r) => r.id)).join(' '));
     await page.screenshot({ path: path.join(shots, `level5_${w}x${h}.png`) });
+  }
+  // ----- stage 3: start window with pre-level boosters, in-level boosters, buy window, x2 reward -----
+  await page.setViewport({ width: 390, height: 844 });
+  await page.evaluate(() => { AP.save.level = 12; AP.save.coins = 500; QA.goto('lobby'); }); await step(page, 0.3);
+  await page.evaluate(() => QA.tap('play')); await step(page, 0.2);
+  st = await state(page);
+  check('level 12: Play opens the start window', st.modal === 'start', st.modal);
+  await page.screenshot({ path: path.join(shots, 'start_390x844.png') });
+  const gifted = await page.evaluate(() => ({ ...AP.save.boosters }));
+  check('boosters opened by level 12 were gifted', ['hint', 'shield', 'wand', 'heart', 'warmup', 'glow'].every((id) => gifted[id] > 0), JSON.stringify(gifted));
+  await page.evaluate(() => QA.tap('bst_heart')); await step(page, 0.1);
+  await page.evaluate(() => QA.tap('start_go')); await step(page, 0.5); await adWait(); await step(page, 1.5);
+  st = await state(page);
+  check('start with the extra-heart pre-booster: 4 hearts', st.scene === 'level' && st.board.n === 12 && st.board.hearts === 4 && st.board.maxHearts === 4, `${st.scene} hearts ${st.board && st.board.hearts}`);
+  check('event prebooster/heart/select, stock -1', st.events.includes('prebooster / heart / select') && st.board.boosters.heart === gifted.heart - 1);
+  await page.evaluate(() => QA.tap('bst_hint')); await step(page, 0.1);
+  st = await state(page); const hinted = st.board.arrows.find((a) => a.id === st.board.hint);
+  check('hint marks a free arrow', !!hinted && hinted.free && st.events.includes('booster / hint / use'), String(st.board.hint));
+  await page.evaluate(() => QA.tap('bst_shield')); await step(page, 0.1);
+  let blk = (await state(page)).board.arrows.find((a) => !a.free);
+  await page.evaluate((p) => QA.tapAt(p[0], p[1]), blk.at); await step(page, 0.8);
+  st = await state(page);
+  check('shield absorbs one bump', st.board.hearts === 4 && !st.board.shield && st.events.includes('booster / shield / use'), `hearts ${st.board.hearts} shield ${st.board.shield}`);
+  const left0 = st.board.left; blk = st.board.arrows.find((a) => !a.free);
+  await page.evaluate(() => QA.tap('bst_wand')); await step(page, 0.1);
+  await page.screenshot({ path: path.join(shots, 'wand_390x844.png') });
+  await page.evaluate((p) => QA.tapAt(p[0], p[1]), blk.at); await step(page, 0.6);
+  st = await state(page);
+  check('wand removes a blocked arrow', st.board.left === left0 - 1 && !st.board.wand && st.events.includes('booster / wand / use'), `left ${left0} -> ${st.board.left}`);
+  await page.evaluate(() => { AP.save.boosters.hint = 0; }); await step(page, 0.1);
+  await page.evaluate(() => QA.tap('bst_hint')); await step(page, 0.1);
+  st = await state(page);
+  check('empty booster opens the buy window', st.modal === 'buy', st.modal);
+  await page.screenshot({ path: path.join(shots, 'buy_390x844.png') });
+  const c0 = st.coins; await page.evaluate(() => QA.tap('buy_coins')); await step(page, 0.1);
+  st = await state(page);
+  check('buy for coins: +1 hint, coins spent', st.board.boosters.hint === 1 && st.coins === c0 - 50 && !st.modal, `hint ${st.board.boosters.hint} coins ${c0} -> ${st.coins}`);
+  await page.evaluate(() => { AP.save.boosters.hint = 0; }); await page.evaluate(() => QA.tap('bst_hint')); await step(page, 0.1);
+  await page.evaluate(() => QA.tap('buy_ad')); await page.waitForFunction(() => !AP.poki.adRunning, { timeout: 8000, polling: 100 }).catch(() => {}); await step(page, 0.1);
+  st = await state(page);
+  check('buy for an ad: +1 hint', st.board.boosters.hint === 1 && st.events.includes('rewarded / booster / interact'), String(st.board.boosters.hint));
+  st = await clear();
+  check('level 12 won', st.modal === 'win', st.modal);
+  const cw = st.coins; await page.evaluate(() => QA.tap('win_double')); await page.waitForFunction(() => !AP.poki.adRunning, { timeout: 8000, polling: 100 }).catch(() => {}); await step(page, 0.1);
+  st = await state(page);
+  check('x2 coins for an ad on the win window', st.coins === cw + 15 && st.events.includes('rewarded / double / interact'), `${cw} -> ${st.coins}`);
+  await page.screenshot({ path: path.join(shots, 'win_double_390x844.png') });
+  for (const [w, h] of [[360, 640], [1280, 720], [844, 390]]) {
+    await page.setViewport({ width: w, height: h }); await page.evaluate(() => { window.dispatchEvent(new Event('resize')); AP.game.modal = { type: 'start', n: 12 }; }); await step(page, 0.1);
+    let hits = await page.evaluate(() => QA.hits());
+    check(`${w}x${h}: start window fits`, hits.every((r) => r.id === 'modal_block' || inside(r, w, h)), hits.filter((r) => !inside(r, w, h)).map((r) => r.id).join(' '));
+    await page.screenshot({ path: path.join(shots, `start_${w}x${h}.png`) });
+    await page.evaluate(() => { AP.game.modal = { type: 'win', stars: 2, rew: { coins: 15, stars: 2 }, t: 1 }; }); await step(page, 0.1);
+    hits = await page.evaluate(() => QA.hits());
+    check(`${w}x${h}: win window fits`, hits.every((r) => r.id === 'modal_block' || inside(r, w, h)), hits.filter((r) => !inside(r, w, h)).map((r) => r.id).join(' '));
+    await page.screenshot({ path: path.join(shots, `win_${w}x${h}.png`) });
+    await page.evaluate(() => { AP.game.modal = null; QA.goto('level', { n: 12 }); }); await step(page, 0.2);
+    hits = await page.evaluate(() => QA.hits());
+    const bar = ['bst_hint', 'bst_shield', 'bst_wand'].map((id) => hits.find((r) => r.id === id));
+    check(`${w}x${h}: booster bar on screen, no overlaps`, bar.every((r) => r && inside(r, w, h)) && !overlap(bar[0], bar[1]) && !overlap(bar[1], bar[2]));
+    await page.screenshot({ path: path.join(shots, `level12_${w}x${h}.png`) });
   }
   // generated levels: endless ones after the baked list are solvable; the biggest baked level draws fast and zooms
   const gen = await page.evaluate(() => { const out = []; for (let n = AP.LEVELS.length + 1; n <= AP.LEVELS.length + 12; n++) { const lv = AP.levelData(n); out.push({ n, ok: !!lv && !AP.board.validate(lv).length && !!AP.board.solve(lv) }); } return out; });

@@ -68,7 +68,7 @@
 
   // ----- buy window: one booster for coins or for a rewarded ad -----
   AP.modals.buy = function (ctx, w, h, m) {
-    const s = AP.ui.layout.s, id = m.id, c = BO.cfg(id); const pw = Math.min(w - 32 * s, 360 * s), ph = 330 * s, x = w / 2 - pw / 2, y = h / 2 - ph / 2;
+    const s = AP.ui.fitS(330), id = m.id, c = BO.cfg(id); const pw = Math.min(w - 32 * s, 360 * s), ph = 330 * s, x = w / 2 - pw / 2, y = h / 2 - ph / 2;
     AP.art.panel(ctx, x, y, pw, ph, 24 * s, COL[id]);
     U.text(ctx, AP.t('b_' + id), w / 2, y + 36 * s, { size: 23 * s, color: '#fff', weight: 900, maxW: pw - 90 * s });
     AP.ui.iconButton('buy_close', x + pw - 46 * s, y + 12 * s, 36 * s, (cc, cx, cy, r) => AP.art.icon(cc, 'close', cx, cy, r), () => { AP.audio.click(); AP.game.modal = m.back || null; });
@@ -84,7 +84,7 @@
 
   // ----- level start window: level, difficulty, pre-level boosters (tap to select), Start -----
   AP.modals.start = function (ctx, w, h, m) {
-    const s = AP.ui.layout.s, n = m.n; const pw = Math.min(w - 32 * s, 400 * s), ph = 370 * s, x = w / 2 - pw / 2, y = h / 2 - ph / 2;
+    const s = AP.ui.fitS(370), n = m.n; const pw = Math.min(w - 32 * s, 400 * s), ph = 370 * s, x = w / 2 - pw / 2, y = h / 2 - ph / 2;
     const diff = (AP.levelData(n) || {}).diff || 'easy'; const dcol = { easy: AP.art.GREEN, normal: AP.art.CYAN, hard: AP.art.PINK, superhard: AP.art.RED }[diff];
     AP.art.panel(ctx, x, y, pw, ph, 24 * s, dcol);
     U.text(ctx, AP.t('level_n', { n }), w / 2, y + 38 * s, { size: 28 * s, color: '#fff', weight: 900, maxW: pw - 100 * s });

@@ -105,7 +105,8 @@
       // live board: arrows left, hearts, idle arrows with a tap point on screen and whether they are free, view zoom
       board() {
         const st = AP.board.cur; if (!st) return null; const L = AP.screens.level;
-        return { n: L.n, diff: L.diff, total: st.arrows.length, left: st.left, hearts: L.hearts, busy: AP.board.busy(), zoom: st.view ? st.view.c / st.view.cFit : 1,
+        return { n: L.n, diff: L.diff, total: st.arrows.length, left: st.left, hearts: L.hearts, maxHearts: L.maxHearts, busy: AP.board.busy(), zoom: st.view ? st.view.c / st.view.cFit : 1,
+          hint: L.hintId, shield: !!L.shield, wand: !!L.wand, boosters: { ...AP.save.boosters },
           arrows: st.arrows.filter(a => a.state === 'idle' && st.alive[a.id]).map(a => ({ id: a.id, at: AP.board.screenOf(a.id), free: AP.board.ray(st.m, st.occ, a).free })) };
       },
       // solvability of every level in AP.LEVELS (null = stuck)

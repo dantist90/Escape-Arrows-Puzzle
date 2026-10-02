@@ -82,7 +82,11 @@
     // ----- drawing -----
     rects() {
       const L = AP.ui.layout, s = L.s; const hudH = 44 * s; const st = L.stage;
-      return { hud: { x: st.x, y: st.y, w: st.w, h: hudH }, board: { x: st.x + 6 * s, y: st.y + hudH, w: st.w - 12 * s, h: Math.max(40, L.foot.y - st.y - hudH) }, foot: L.foot };
+      if (L.portrait) return { hud: { x: st.x, y: st.y, w: st.w, h: hudH }, board: { x: st.x + 6 * s, y: st.y + hudH, w: st.w - 12 * s, h: Math.max(40, L.foot.y - st.y - hudH) }, foot: L.foot };
+      // landscape: boosters in a column on the right, the board takes the whole height under the HUD
+      const col = 84 * s, bottom = L.h - L.safe.b - 8 * s;
+      return { hud: { x: st.x, y: st.y, w: st.w, h: hudH }, board: { x: st.x + 56 * s, y: st.y + hudH, w: st.w - 56 * s - col, h: Math.max(40, bottom - st.y - hudH) },
+        side: { x: st.x + st.w - col, y: st.y + hudH, w: col, h: Math.max(40, bottom - st.y - hudH) } };
     },
     draw(ctx, w, h) {
       const L = AP.ui.layout, s = L.s; AP.art.background(ctx, w, h, AP.game.t);
@@ -90,16 +94,18 @@
       AP.game.topBar(ctx, { back: () => { AP.audio.click(); AP.game.open('lobby'); }, pills: ['coins'], title: AP.t('level_n', { n: S.n }) });
       S.drawHud(ctx, R.hud, s);
       if (B().cur && B().zoomable()) S.drawZoom(ctx, R.board, s);
-      S.drawBoosters(ctx, R.foot, s);
+      S.drawBoosters(ctx, R.foot || R.side, s, !R.foot);
       if (S.wand) { const ty = R.board.y + 14 * s; ctx.fillStyle = 'rgba(15,4,45,0.85)'; U.rr(ctx, w / 2 - 120 * s, ty, 240 * s, 32 * s, 16 * s); ctx.fill(); U.text(ctx, AP.t('pick_arrow'), w / 2, ty + 16 * s, { size: 14 * s, color: '#fff', weight: 800, maxW: 224 * s }); }
     },
     // booster bar: hint, shield, wand (each opens the buy window when empty)
-    drawBoosters(ctx, r, s) {
-      const BO = AP.boosters, size = Math.min(r.h - 16 * s, 64 * s), gap = Math.min(28 * s, (r.w - size * 3) / 4), x0 = r.x + r.w / 2 - (size * 3 + gap * 2) / 2, y = r.y + (r.h - size) / 2;
+    drawBoosters(ctx, r, s, vertical) {
+      const BO = AP.boosters, size = vertical ? Math.min(r.w - 16 * s, 64 * s, (r.h - 40 * s) / 3.6) : Math.min(r.h - 16 * s, 64 * s);
+      const gap = vertical ? Math.min(24 * s, (r.h - size * 3) / 4) : Math.min(28 * s, (r.w - size * 3) / 4);
+      const pos = i => vertical ? [r.x + (r.w - size) / 2, r.y + r.h / 2 - (size * 3 + gap * 2) / 2 + i * (size + gap)] : [r.x + r.w / 2 - (size * 3 + gap * 2) / 2 + i * (size + gap), r.y + (r.h - size) / 2];
       const act = { hint: () => { const f = B().freeIds(); if (!f.length || S.hintId >= 0) return; if (BO.use('hint')) { S.hintId = f[0]; S.hintT = 4; AP.audio.sparkle(); } },
         shield: () => { if (S.shield) return; if (BO.use('shield')) { S.shield = true; AP.audio.sparkle(); } },
         wand: () => { S.wand = !S.wand; AP.audio.click(); } };
-      BO.IN.forEach((id, i) => BO.button(ctx, id, x0 + i * (size + gap), y, size, () => {
+      BO.IN.forEach((id, i) => BO.button(ctx, id, pos(i)[0], pos(i)[1], size, () => {
         if (S.done || B().busy() && id !== 'shield') return; if (id === 'wand' && S.wand) return act.wand();
         if (BO.count(id) <= 0) { AP.audio.click(); AP.game.modal = { type: 'buy', id }; return; } act[id](); }, { lvl: S.n, active: (id === 'shield' && S.shield) || (id === 'wand' && S.wand) }));
     },
@@ -123,7 +129,7 @@
       U.text(ctx, pct + '%', px + pw / 2, cy - ph - 4 * s, { size: 11 * s, color: AP.art.INK_DIM, weight: 800 });
     },
     drawZoom(ctx, r, s) {
-      const bs = 40 * s, x = r.x + 4 * s, y = r.y + r.h / 2 - bs - 5 * s; const v = B().cur.view;
+      const bs = 40 * s, x = AP.ui.layout.portrait ? r.x + 4 * s : r.x - 50 * s, y = r.y + r.h / 2 - bs - 5 * s; const v = B().cur.view;
       const plus = (c, cx, cy, rr) => { c.strokeStyle = '#fff'; c.lineWidth = rr * 0.3; c.lineCap = 'round'; c.beginPath(); c.moveTo(cx - rr, cy); c.lineTo(cx + rr, cy); c.moveTo(cx, cy - rr); c.lineTo(cx, cy + rr); c.stroke(); };
       const minus = (c, cx, cy, rr) => { c.strokeStyle = '#fff'; c.lineWidth = rr * 0.3; c.lineCap = 'round'; c.beginPath(); c.moveTo(cx - rr, cy); c.lineTo(cx + rr, cy); c.stroke(); };
       const mid = [r.x + r.w / 2, r.y + r.h / 2];
@@ -135,7 +141,7 @@
 
   // ----- win window: stars, reward, Next -----
   AP.modals.win = function (ctx, w, h, m) {
-    const s = AP.ui.layout.s; m.t += AP.game.dt || 0.016; const pw = Math.min(w - 32 * s, 380 * s), ph = 380 * s, x = w / 2 - pw / 2, y = h / 2 - ph / 2;
+    const s = AP.ui.fitS(380); m.t += AP.game.dt || 0.016; const pw = Math.min(w - 32 * s, 380 * s), ph = 380 * s, x = w / 2 - pw / 2, y = h / 2 - ph / 2;
     AP.art.panel(ctx, x, y, pw, ph, 24 * s, AP.art.PINK);
     U.text(ctx, AP.t('level_done'), w / 2, y + 40 * s, { size: 26 * s, color: '#fff', weight: 900, stroke: AP.art.PINK, strokeW: 6 * s, maxW: pw - 30 * s });
     for (let i = 0; i < 3; i++) { const k = U.clamp((m.t - 0.2 - i * 0.22) / 0.3, 0, 1), on = i < m.stars; const sx = w / 2 + (i - 1) * 70 * s, sy = y + 112 * s - (i === 1 ? 12 * s : 0);
@@ -155,7 +161,7 @@
 
   // ----- out of hearts: continue (coins / ad), retry, menu -----
   AP.modals.fail = function (ctx, w, h, m) {
-    const s = AP.ui.layout.s; const pw = Math.min(w - 32 * s, 380 * s), ph = 360 * s, x = w / 2 - pw / 2, y = h / 2 - ph / 2; const C = AP.CONFIG.level;
+    const s = AP.ui.fitS(360); const pw = Math.min(w - 32 * s, 380 * s), ph = 360 * s, x = w / 2 - pw / 2, y = h / 2 - ph / 2; const C = AP.CONFIG.level;
     AP.art.panel(ctx, x, y, pw, ph, 24 * s, AP.art.RED);
     U.text(ctx, AP.t('out_of_hearts'), w / 2, y + 40 * s, { size: 25 * s, color: '#fff', weight: 900, stroke: AP.art.RED, strokeW: 6 * s, maxW: pw - 30 * s });
     U.heart(ctx, w / 2, y + 66 * s, 58 * s); ctx.fillStyle = 'rgba(255,77,109,0.35)'; ctx.fill();

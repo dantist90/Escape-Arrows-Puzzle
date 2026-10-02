@@ -13,6 +13,8 @@ const UI = AP.ui = {
   // 1280x720 PC -> 1.67 (capped at 1.7). Safe areas (notch, home bar) come from CSS env() via #safe in index.html.
   // L = { portrait, s, w, h, safe:{t,r,b,l}, head (top bar), foot (bottom bar), stage (what is left between them) }.
   // barK(): top-bar controls are a bit bigger in landscape (PC / tablet screens have room, small pills read as tiny).
+  // scale for a modal window designed baseH units tall (x s): shrinks on short screens (landscape phones) so it always fits
+  fitS(baseH) { const L = UI.layout; return Math.min(L.s, (L.h - 24) / baseH); },
   barK() { const L = UI.layout; return L && !L.portrait ? (L.h >= 560 ? 1.4 : 1.2) : 1.25; },
   // shrink a right-aligned pill group (width = units * s) so it keeps clear of the centre (title / level plate)
   barFit(w, s, units, reserveHalf) { const L = UI.layout; const lim = L && !L.portrait ? w / 2 - reserveHalf - 12 : w - 24; return units * s > lim ? Math.max(s * 0.6, lim / units) : s; },
@@ -24,8 +26,8 @@ const UI = AP.ui = {
   computeLayout(w, h) {
     UI.w = w; UI.h = h;
     const portrait = h >= w * 1.02;
-    // landscape phones (short height) scale by height; tall portrait phones by width
-    const s = AP.util.clamp(Math.min(w, h * (portrait ? 1 : 1.25)) / 430, 0.62, 1.7); UI.scale = s;
+    // portrait: by width (390 px phone -> 0.91); landscape: by height (720 px PC -> 1.38, 390 px phone -> 0.75)
+    const s = portrait ? AP.util.clamp(Math.min(w, h * 0.62) / 430, 0.62, 1.7) : AP.util.clamp(h / 520, 0.62, 1.6); UI.scale = s;
     const safe = UI.readSafe(); const bk = portrait ? 1.25 : (h >= 560 ? 1.4 : 1.2); // same as barK(), the layout is not stored yet
     const headH = safe.t + Math.max(56 * s, 36 * s * bk + 16 * s);
     const footH = safe.b + (portrait ? 118 * s : 96 * s);
