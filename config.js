@@ -43,8 +43,31 @@ AP.CONFIG = {
   // ---------- tournament (stage 5) ----------
   tournament: {
     unlockLevel: 8, ticketCost: 1, levels: 5, bots: 19,
+    freeTicketOnUnlock: 1,   // gift when the tournament opens (the coach tip points at it)
     arrowsByPlace: [60, 45, 35, 25, 20, 15, 12, 10, 8, 6], // Roadmap arrows for places 1..10, then `arrowsMin`
     arrowsMin: 4,
+    coinsTop3: [150, 100, 60],
+    // score of one tournament level: arrows cleared x arrowPoint + hearts left x heartPoints + max(0, timeBonus - seconds x timePenalty)
+    arrowPoint: 10, heartPoints: 50, timeBonus: 200, timePenalty: 2,
+    botSkill: [0.6, 1.45], // AI players: share of the "typical" level score they make (random per bot, +-15% per level)
+  },
+
+  // ---------- Roadmap (stage 5): milestones paid in arrows (earned in tournaments) ----------
+  // `at` = total arrows needed; past the list, milestones repeat every `repeatEvery` arrows with `repeatReward`
+  roadmap: {
+    steps: [
+      { at: 20, reward: { coins: 100 } },
+      { at: 50, reward: { boosters: { hint: 2 } } },
+      { at: 90, reward: { tickets: 2 } },
+      { at: 140, reward: { coins: 200 } },
+      { at: 200, reward: { boosters: { shield: 2, wand: 1 } } },
+      { at: 270, reward: { tickets: 3 } },
+      { at: 350, reward: { coins: 300 } },
+      { at: 440, reward: { boosters: { heart: 2, glow: 2 } } },
+      { at: 540, reward: { tickets: 3, coins: 200 } },
+      { at: 650, reward: { boosters: { wand: 3 } } },
+    ],
+    repeatEvery: 120, repeatReward: { coins: 250, tickets: 1 },
   },
 
   // ---------- rewarded ads ----------

@@ -32,8 +32,11 @@
 | `tutorial / step-<k> / start\|complete` | шаг обучения FTUE | 4 |
 | `booster / hint\|shield\|wand / use` | бустер в уровне использован | 3 |
 | `prebooster / heart\|warmup\|glow / select` | пре-бустер выбран в окне старта | 3 |
-| `tournament / run-<n> / start\|complete\|fail` | забег турнира | 5 |
+| `tournament / run-<n> / start\|complete\|fail` | забег турнира: начат за билет или ревард / доигран / брошен | 5 |
+| `tournament / level-<k> / start\|complete\|fail` | уровень k (1..5) забега: открыт / пройден / сдан (сердца кончились или выход) | 5 |
 | `roadmap / milestone-<k> / unlocked` | награда Roadmap получена | 5 |
 | `room / step-<k> / unlocked` | шаг Комнаты куплен | 6 |
 
-Плейсменты ревардов (этап 3+): `continue` (сердце после проигрыша), `ticket` (вход в турнир), `double` (x2 награда), `booster` (бустер бесплатно).
+Плейсменты ревардов: `continue` (сердце после проигрыша), `ticket` (вход в турнир), `double` (x2 награда), `booster` (бустер бесплатно).
+
+Уровни турнира не шлют `level / <N> / ...` — у них своя воронка `tournament / level-<k>`, чтобы не смешивать с прогрессом по уровням.

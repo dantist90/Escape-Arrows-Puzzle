@@ -104,7 +104,8 @@
       state() {
         return { ready: !AP.boot.active, scene: AP.game.state, modal: AP.game.modal && AP.game.modal.type, trans: AP.trans.active, coach: AP.coach.cur && AP.coach.cur.id, lang: AP.lang,
           level: AP.save.level, coins: AP.save.coins, tickets: AP.save.tickets, stars: AP.save.stars, arrows: AP.save.arrows,
-          layout: { w: W, h: H, s: AP.ui.scale, portrait: AP.ui.layout.portrait }, events: AP.poki.events.slice(), sdk: AP.poki.log.slice(), board: QA.board() };
+          layout: { w: W, h: H, s: AP.ui.scale, portrait: AP.ui.layout.portrait }, events: AP.poki.events.slice(), sdk: AP.poki.log.slice(), board: QA.board(),
+          tour: AP.save.tournament ? { n: AP.save.tournament.n, idx: AP.save.tournament.idx, place: AP.tour.place(), score: AP.tour.total(AP.save.tournament.scores) } : null, roadmap: AP.save.roadmap };
       },
       // live board: arrows left, hearts, idle arrows with a tap point on screen and whether they are free, view zoom
       board() {

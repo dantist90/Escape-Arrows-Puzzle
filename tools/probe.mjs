@@ -100,7 +100,7 @@ try {
   check('quit level 3 -> lobby, level/3/fail sent once', st.scene === 'lobby' && ev.filter((e) => e === 'level / 3 / fail').length === 1, st.scene);
   // the biggest hand level on a small phone and on PC
   for (const [w, h] of [[360, 640], [1280, 720]]) {
-    await page.setViewport({ width: w, height: h }); await page.evaluate(() => QA.goto('level', { n: 5 })); await step(page, 0.3);
+    await page.setViewport({ width: w, height: h }); await page.evaluate(() => { window.dispatchEvent(new Event('resize')); QA.goto('level', { n: 5 }); }); await step(page, 0.3);
     const b = (await state(page)).board; const hits = await page.evaluate(() => QA.hits());
     const offA = b.arrows.filter((a) => !(a.at[0] > 0 && a.at[1] > 0 && a.at[0] < w && a.at[1] < h)), offH = hits.filter((r) => r.id !== 'modal_block' && !inside(r, w, h));
     check(`${w}x${h}: level 5 arrows and widgets on screen`, !offA.length && !offH.length, offA.map((a) => a.id).concat(offH.map((r) => r.id)).join(' '));
@@ -167,6 +167,44 @@ try {
     check(`${w}x${h}: booster bar on screen, no overlaps`, bar.every((r) => r && inside(r, w, h)) && !overlap(bar[0], bar[1]) && !overlap(bar[1], bar[2]));
     await page.screenshot({ path: path.join(shots, `level12_${w}x${h}.png`) });
   }
+  // ----- stage 5: tournament (free ticket on unlock, 5 levels vs 19 AI, results, Roadmap) -----
+  await page.setViewport({ width: 390, height: 844 });
+  await page.evaluate(() => { AP.game.modal = null; AP.save.level = 8; AP.save.tickets = 0; AP.save.arrows = 0; AP.save.roadmap = 0; AP.save.seen.coach_tour = 0; AP.save.seen.tour_gift = 0; QA.goto('lobby'); }); await step(page, 0.6);
+  st = await state(page);
+  check('tournament opens at level 8: free ticket + coach tip on the button', st.tickets === 1 && st.coach === 'tour', `tickets ${st.tickets} coach ${st.coach}`);
+  await page.screenshot({ path: path.join(shots, 'lobby_tour_390x844.png') });
+  await page.evaluate(() => QA.tap('tour')); await step(page, 0.5); await page.evaluate(() => QA.tap('tour')); await step(page, 1.5);
+  st = await state(page);
+  check('Tournament screen opens', st.scene === 'tour' && !st.tour, st.scene);
+  await page.screenshot({ path: path.join(shots, 'tour_info_390x844.png') });
+  await page.evaluate(() => QA.tap('tour_join')); await step(page, 0.2);
+  st = await state(page);
+  check('join for a ticket: run 1 starts, 20 players', st.tour && st.tour.n === 1 && st.tickets === 0 && st.events.includes('tournament / run-1 / start') && (await page.evaluate(() => AP.tour.table().length)) === 20, JSON.stringify(st.tour));
+  for (let k = 0; k < 5; k++) {
+    await page.evaluate(() => QA.tap('tour_play')); await step(page, 0.5); await adWait(); await step(page, 1.5);
+    st = await state(page);
+    if (k === 0) { check('tournament level opens with its own funnel', st.scene === 'level' && st.events.includes('tournament / level-1 / start') && !st.events.some((e) => /^level \/ 8 \//.test(e)), st.scene); await page.screenshot({ path: path.join(shots, 'tour_level_390x844.png') }); }
+    st = await clear();
+    if (st.modal !== 'tourLevel') { check(`tournament level ${k + 1} -> points window`, false, st.modal); break; }
+    await page.evaluate(() => QA.tap('tour_cont')); await step(page, 1.5);
+    if (k === 1) { await page.screenshot({ path: path.join(shots, 'tour_table_390x844.png') }); check('table after 2 levels: player has points, place 1..20', (await state(page)).tour.score > 0 && (await state(page)).tour.place >= 1); }
+  }
+  st = await state(page);
+  check('after 5 levels: results window, run complete', st.scene === 'tour' && st.modal === 'tourEnd' && !st.tour && st.events.includes('tournament / run-1 / complete') && [1, 2, 3, 4, 5].every((k) => st.events.includes(`tournament / level-${k} / complete`)), `${st.scene} ${st.modal}`);
+  await page.screenshot({ path: path.join(shots, 'tour_end_390x844.png') });
+  check('arrows for the Roadmap granted', st.arrows > 0, String(st.arrows));
+  await page.evaluate(() => QA.tap('tour_end_ok')); await step(page, 0.2);
+  st = await state(page);
+  check('Roadmap milestone claimed when reached (reward window)', st.arrows < 20 || (st.roadmap >= 1 && st.modal === 'reward' && st.events.includes('roadmap / milestone-1 / unlocked')), `arrows ${st.arrows} roadmap ${st.roadmap} modal ${st.modal}`);
+  await page.screenshot({ path: path.join(shots, 'roadmap_reward_390x844.png') });
+  await page.evaluate(() => { AP.game.modal = { type: 'roadmap' }; }); await step(page, 0.1);
+  await page.screenshot({ path: path.join(shots, 'roadmap_390x844.png') });
+  for (const [w, h] of [[360, 640], [844, 390]]) {
+    await page.setViewport({ width: w, height: h }); await page.evaluate(() => { window.dispatchEvent(new Event('resize')); AP.game.modal = { type: 'roadmap' }; }); await step(page, 0.1);
+    const hits = await page.evaluate(() => QA.hits());
+    check(`${w}x${h}: roadmap window fits`, hits.every((r) => r.id === 'modal_block' || inside(r, w, h)), hits.filter((r) => !inside(r, w, h)).map((r) => r.id).join(' '));
+  }
+  await page.evaluate(() => { AP.game.modal = null; }); await page.setViewport({ width: 390, height: 844 }); await page.evaluate(() => window.dispatchEvent(new Event('resize')));
   // generated levels: endless ones after the baked list are solvable; the biggest baked level draws fast and zooms
   const gen = await page.evaluate(() => { const out = []; for (let n = AP.LEVELS.length + 1; n <= AP.LEVELS.length + 12; n++) { const lv = AP.levelData(n); out.push({ n, ok: !!lv && !AP.board.validate(lv).length && !!AP.board.solve(lv) }); } return out; });
   check('endless levels (after the baked ones) valid and solvable', gen.every((g) => g.ok), gen.filter((g) => !g.ok).map((g) => g.n).join(' '));

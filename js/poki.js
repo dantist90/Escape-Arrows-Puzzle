@@ -25,7 +25,7 @@ const P = AP.poki = {
   measure(category, what, action) {
     const clean = v => String(v).replace(/[\/^]/g, '-');
     const e = [clean(category), clean(what), clean(action)];
-    P.events.push(e.join(' / ')); if (P.events.length > 500) P.events.shift();
+    P.events.push(e.join(' / ')); if (P.events.length > 3000) P.events.shift();
     if (/[?&]evlog=1/.test(location.search)) console.log('[measure]', e.join(' / '));
     try { if (P.sdk && P.sdk.measure) P.sdk.measure(e[0], e[1], e[2]); } catch (err) { /* never break the game over analytics */ }
   },
