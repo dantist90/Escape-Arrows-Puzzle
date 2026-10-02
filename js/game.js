@@ -36,7 +36,7 @@
       const pills = o.pills || ['coins', 'tickets', 'stars'];
       const ps = AP.ui.barFit(L.w, s * k, pills.length * 92 + 20, o.title ? 90 * s : 0); const pw = 84 * ps, ph = 30 * ps;
       for (let i = pills.length - 1; i >= 0; i--) { x1 -= pw; AP.art.pill(ctx, x1, hd.top + (hd.h - hd.top - ph) / 2, pw, ph, pills[i], AP.meta.get(pills[i]), ps); x1 -= 6 * s; }
-      if (o.title) U.text(ctx, o.title, (x0 + x1) / 2, hd.top + (hd.h - hd.top) / 2, { size: 20 * s * Math.min(k, 1.2), color: '#fff', weight: 900, maxW: Math.max(40, x1 - x0 - 8 * s) });
+      if (o.title) U.text(ctx, o.title, (x0 + x1) / 2, hd.top + (hd.h - hd.top) / 2, { size: 20 * s * Math.min(k, 1.2), color: '#fff', weight: 900, maxW: Math.max(40, x1 - x0 - 8 * s), minScale: 0.55 });
       return hd;
     },
   };

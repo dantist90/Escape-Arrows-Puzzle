@@ -5,4 +5,5 @@ AP.QA = {
   on: /[?&]qa=1/.test(location.search),
   fast: /[?&]fast=1/.test(location.search),
   noSdk: /[?&]nosdk=1/.test(location.search),
+  cut: /[?&]qa=1/.test(location.search) ? new Set() : null, // strings that had to be cut with an ellipsis (AP.util.fit)
 };

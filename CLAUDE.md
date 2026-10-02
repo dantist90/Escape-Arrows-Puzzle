@@ -10,14 +10,16 @@
 ## Как работаем
 - Каждый этап из GDD — отдельная ветка `stage-N-<кратко>` и PR в `main`. Один этап — одна сессия.
 - В начале сессии: прочитать GDD, STATUS, EVENTS. В конце — обновить STATUS (что сделано, что осталось, решения).
-- Перед PR обязательно: `node tools/probe.mjs` зелёный; если менялась сборка — `node tools/build.mjs --zip && node tools/distcheck.mjs`.
+- Перед PR обязательно: `npm run check` зелёный (probe, textfit, сборка, distcheck).
 
 ## Запуск и инструменты (только Node, Python нет и не нужен)
 ```
 npm install                      # один раз: puppeteer-core для ригов (игре зависимости не нужны)
 node tools/serve.mjs . 8993      # dev-сервер http://localhost:8993  (?qa=1&fast=1&reset=1&uilang=ru&evlog=1)
 node tools/genlevels.mjs         # перепечь levels/levels.js (100 уровней) + таблица метрик
-node tools/probe.mjs             # главный риг: 7 размеров экрана + сценарий + события, скриншоты в shots/
+node tools/probe.mjs             # главный риг: 7 размеров экрана + все сценарии + события Poki, скриншоты в shots/
+node tools/textfit.mjs           # 9 языков x телефон / телефон боком: ни один текст не обрезан, все ключи переведены
+npm run check                    # всё сразу: probe + textfit + build + distcheck
 node tools/build.mjs --zip       # dist/ + EscapeArrows-YYYYMMDD.zip для Poki (без чит-панели)
 node tools/distcheck.mjs         # dist/ грузится сам, ноль 404/внешних запросов, zip = dist/
 node tools/pack-standalone.mjs   # EscapeArrows.html — один файл, открывается двойным кликом

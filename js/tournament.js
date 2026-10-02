@@ -93,7 +93,7 @@
     enter(arg) { AP.poki.gameplayStop(); if (arg && arg.final) AP.game.modal = { type: 'tourEnd', ...arg.final, t: 0 }; }, // final results of a finished run
     draw(ctx, w, h) {
       const L = AP.ui.layout, s = L.s, t = AP.game.t; AP.art.background(ctx, w, h, t); const r = T.run();
-      AP.game.topBar(ctx, { back: () => { AP.audio.click(); AP.game.open('lobby'); }, pills: ['tickets', 'arrows'], title: AP.t('tour_title') });
+      AP.game.topBar(ctx, { back: () => { AP.audio.click(); AP.game.open('lobby'); }, pills: w < 430 ? ['tickets'] : ['tickets', 'arrows'], title: AP.t('tour_title') }); // narrow phones: room for the title
       const st = L.stage, pw = Math.min(st.w - 24 * s, 480 * s), px = st.x + st.w / 2 - pw / 2, py = st.y + 8 * s, ph = L.foot.y - py - 8 * s;
       AP.art.panel(ctx, px, py, pw, ph, 22 * s, AP.art.YELLOW);
       if (!r) { S.info(ctx, px, py, pw, ph, s, t); }

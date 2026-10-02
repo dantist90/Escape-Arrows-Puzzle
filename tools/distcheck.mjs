@@ -17,11 +17,13 @@ try {
   await page.goto(`http://127.0.0.1:${PORT}/?qa=1&reset=1&fast=1&uilang=ru`, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await waitReady(page); await step(page, 0.3);
   let st = await state(page);
-  check('lobby from dist', st.scene === 'lobby', st.scene);
+  check('new player: level 1 from dist', st.scene === 'level' && st.board && st.board.n === 1, st.scene);
   check('ru strings in dist', st.lang === 'ru', st.lang);
   check('no cheat panel in the build', await page.evaluate(() => !AP.cheats));
+  await page.evaluate(() => { AP.save.seen.coach_tap = 1; QA.goto('lobby'); }); await step(page, 0.3);
+  check('lobby from dist', (await state(page)).scene === 'lobby');
   await page.evaluate(() => QA.tap('play')); await step(page, 1.5);
-  check('level opens from dist', (await state(page)).scene === 'level');
+  check('level opens from the lobby', (await state(page)).scene === 'level');
   const foreign = requests.filter((u) => !u.startsWith(`http://127.0.0.1:${PORT}/`) && !u.startsWith('data:') && !u.startsWith('blob:') && !isPoki(u));
   check('no external requests', foreign.length === 0, foreign.slice(0, 5).join(' '));
   check('no failed requests (404)', failedReq.length === 0, failedReq.slice(0, 5).join(' '));

@@ -66,7 +66,8 @@ const U = AP.util = {
     ctx.save(); ctx.font = `${weight || 800} ${size}px ${AP.FONT}`; let w = ctx.measureText(str).width;
     // text width is not exactly linear in font size (hinting): nudge down a few times before giving up
     for (let k = 0; k < 4 && w > maxW && w <= maxW * 1.08; k++) { const ns = size * maxW / w * 0.99; if (ns < origMin) break; size = ns; ctx.font = `${weight || 800} ${size}px ${AP.FONT}`; w = ctx.measureText(str).width; }
-    if (w > maxW) { let t = str; while (t.length > 1 && ctx.measureText(t.trimEnd() + '…').width > maxW) t = t.slice(0, -1); str = t.trimEnd() + '…'; w = ctx.measureText(str).width; }
+    if (w > maxW) { if (AP.QA && AP.QA.cut) AP.QA.cut.add(str); // QA: texts that did not fit (tools/probe.mjs lists them)
+      let t = str; while (t.length > 1 && ctx.measureText(t.trimEnd() + '…').width > maxW) t = t.slice(0, -1); str = t.trimEnd() + '…'; w = ctx.measureText(str).width; }
     ctx.restore(); return { str, size, w };
   },
   // word-wrap text; returns line count. opt.maxLines: last line is ellipsized; opt.dry: measure only (no drawing)
