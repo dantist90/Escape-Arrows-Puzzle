@@ -4,7 +4,7 @@
 const P = AP.poki = {
   ready: false, sdk: null, adRunning: false, fake: false, fakeTimer: 0, fakeLabel: '',
   init() {
-    if (window.PokiSDK) {
+    if (window.PokiSDK && !AP.QA.noSdk) {
       P.sdk = window.PokiSDK;
       return P.sdk.init().then(() => { P.ready = true; }).catch(() => { P.ready = false; });
     }

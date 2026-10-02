@@ -11,7 +11,6 @@
   window.addEventListener('resize', resize); window.addEventListener('orientationchange', () => setTimeout(resize, 100)); resize();
 
   // ----- input: one pointer at a time; a press on a widget goes to the widget, otherwise to the scene -----
-  // (pinch zoom on the board in stage 1 will need the second pointer: route it through AP.game.onPinch there)
   const blocked = () => AP.poki.adRunning || AP.trans.active || AP.boot.active;
   function down(x, y) {
     AP.audio.init(); AP.audio.resume();
@@ -32,12 +31,36 @@
     }
     AP.game.onUp(x, y);
   }
-  canvas.addEventListener('pointerdown', e => { if (activePointer !== null && activePointer !== e.pointerId) return; activePointer = e.pointerId; down(e.clientX, e.clientY); e.preventDefault(); });
-  canvas.addEventListener('pointermove', e => { if (activePointer !== null && activePointer !== e.pointerId) return; move(e.clientX, e.clientY); });
-  const onUp = e => { if (activePointer !== null && activePointer !== e.pointerId) return; activePointer = null; up(e.clientX, e.clientY); };
+  // A second finger on the scene (not on a widget) starts a pinch: the scene gets onPinchStart / onPinch(k, cx, cy) / onPinchEnd
+  // and the first finger's tap is cancelled by the scene. Pinch ends when either finger lifts.
+  const pts = new Map(); let pinch = null;
+  const scene = () => (AP.game.modal ? null : AP.game.scene());
+  const pinchInfo = () => { const [a, b] = [...pts.values()]; return { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 }; };
+  canvas.addEventListener('pointerdown', e => {
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); e.preventDefault();
+    if (activePointer !== null && activePointer !== e.pointerId) {
+      const sc = scene(); if (pts.size === 2 && !pinch && !AP.ui.pressed && sc && sc.onPinchStart && !blocked()) { pinch = pinchInfo(); sc.onPinchStart(); }
+      return;
+    }
+    activePointer = e.pointerId; down(e.clientX, e.clientY);
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch && pts.size >= 2) { const sc = scene(); const p = pinchInfo(); if (sc && sc.onPinch) sc.onPinch(p.d / pinch.d, p.cx, p.cy); pinch = p; return; }
+    if (activePointer !== null && activePointer !== e.pointerId) return; move(e.clientX, e.clientY);
+  });
+  const onUp = e => {
+    pts.delete(e.pointerId);
+    if (pinch) { pinch = null; const sc = scene(); if (sc && sc.onPinchEnd) sc.onPinchEnd(); }
+    if (activePointer !== null && activePointer !== e.pointerId) return; activePointer = null; up(e.clientX, e.clientY);
+  };
   canvas.addEventListener('pointerup', onUp); canvas.addEventListener('pointercancel', onUp);
   window.addEventListener('contextmenu', e => e.preventDefault());
-  canvas.addEventListener('wheel', e => { if (AP.ui.wheel(e.clientX, e.clientY, e.deltaX, e.deltaY)) e.preventDefault(); }, { passive: false });
+  // wheel: a scrolling grid first, then the scene (board zoom)
+  canvas.addEventListener('wheel', e => {
+    if (AP.ui.wheel(e.clientX, e.clientY, e.deltaX, e.deltaY)) { e.preventDefault(); return; }
+    const sc = scene(); if (sc && sc.onWheel && !blocked() && sc.onWheel(e.clientX, e.clientY, e.deltaY)) e.preventDefault();
+  }, { passive: false });
   window.addEventListener('keydown', e => { if (['ArrowUp', 'ArrowDown', ' '].includes(e.key)) e.preventDefault(); });
 
   // ----- one frame: update everything by dt, then draw (the QA rigs call it directly with a fixed dt) -----
@@ -77,8 +100,16 @@
       state() {
         return { ready: !AP.boot.active, scene: AP.game.state, modal: AP.game.modal && AP.game.modal.type, trans: AP.trans.active, lang: AP.lang,
           level: AP.save.level, coins: AP.save.coins, tickets: AP.save.tickets, stars: AP.save.stars, arrows: AP.save.arrows,
-          layout: { w: W, h: H, s: AP.ui.scale, portrait: AP.ui.layout.portrait }, events: AP.poki.events.slice(), sdk: AP.poki.log.slice() };
+          layout: { w: W, h: H, s: AP.ui.scale, portrait: AP.ui.layout.portrait }, events: AP.poki.events.slice(), sdk: AP.poki.log.slice(), board: QA.board() };
       },
+      // live board: arrows left, hearts, idle arrows with a tap point on screen and whether they are free, view zoom
+      board() {
+        const st = AP.board.cur; if (!st) return null; const L = AP.screens.level;
+        return { n: L.n, diff: L.diff, total: st.arrows.length, left: st.left, hearts: L.hearts, busy: AP.board.busy(), zoom: st.view ? st.view.c / st.view.cFit : 1,
+          arrows: st.arrows.filter(a => a.state === 'idle' && st.alive[a.id]).map(a => ({ id: a.id, at: AP.board.screenOf(a.id), free: AP.board.ray(st.m, st.occ, a).free })) };
+      },
+      // solvability of every level in AP.LEVELS (null = stuck)
+      solveAll() { return AP.LEVELS.map((lv, i) => ({ n: i + 1, errs: AP.board.validate(lv), order: AP.board.solve(lv) })); },
       // hit rects drawn in the last frame, by id
       hits() { return AP.ui.hits.map(h => ({ id: h.id, ...h.rect })); },
       // tap a widget by id (centre of its rect), as a real pointer would
