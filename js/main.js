@@ -1,7 +1,7 @@
 // ---------- Boot, render loop, input, QA hooks ----------
 (function () {
   const canvas = document.getElementById('game'); const ctx = canvas.getContext('2d'); AP.ctx = ctx;
-  let W = 0, H = 0, dpr = 1, last = 0, activePointer = null;
+  let W = 0, H = 0, dpr = 1, last = 0, activePointer = null, swallow = false;
 
   function resize() {
     dpr = Math.min(window.devicePixelRatio || 1, 2); W = window.innerWidth; H = window.innerHeight;
@@ -16,6 +16,8 @@
     AP.audio.init(); AP.audio.resume();
     AP.ui.pointer.x = x; AP.ui.pointer.y = y; AP.ui.pointer.down = true;
     if (blocked()) return;
+    // a coach tip closes on tap; a tap on its bubble is swallowed, anywhere else it also reaches the game
+    swallow = AP.coach.tap(x, y); if (swallow) { AP.ui.pressed = null; return; }
     const hit = AP.ui.find(x, y);
     if (hit) { AP.ui.pressed = hit.id; if (hit.onDown) hit.onDown(); }
     else { AP.ui.pressed = null; AP.game.onDown(x, y); }
@@ -23,6 +25,7 @@
   function move(x, y) { AP.ui.pointer.x = x; AP.ui.pointer.y = y; if (AP.ui.pointer.down) AP.game.onMove(x, y); }
   function up(x, y) {
     AP.ui.pointer.x = x; AP.ui.pointer.y = y; AP.ui.pointer.down = false;
+    if (swallow) { swallow = false; AP.ui.pressed = null; return; }
     const pressed = AP.ui.pressed; AP.ui.pressed = null;
     if (pressed && !blocked()) {
       const hit = AP.ui.hits.find(h => h.id === pressed);
@@ -69,7 +72,7 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H); AP.ui.begin();
     if (AP.boot.active && !AP.boot.fade) { AP.boot.update(dt); AP.boot.draw(ctx, W, H); return; } // start loader
     AP.updateTweens(dt); AP.updateParticles(dt); AP.game.update(dt); AP.trans.update(dt);
-    AP.game.draw(ctx, W, H); AP.trans.draw(ctx, W, H); AP.poki.drawFake(ctx, W, H, dt);
+    AP.game.draw(ctx, W, H); AP.coach.update(dt); AP.coach.draw(ctx, W, H); AP.trans.draw(ctx, W, H); AP.poki.drawFake(ctx, W, H, dt);
     if (AP.boot.active) { AP.boot.update(dt); AP.boot.draw(ctx, W, H); } // the loader fades out over the first scene
   }
   let qaHold = false; // while a rig steps the game by hand, rAF frames are skipped so time is deterministic
@@ -87,7 +90,8 @@
   const cap = new Promise(res => setTimeout(res, 15000)); // a broken network never blocks the game for good
   AP.boot.start(Promise.all([AP.poki.init(), Promise.race([Promise.all([fontReady, firstAssets]), cap])]), () => {
     AP.poki.loadingFinished();
-    AP.game.go('lobby');
+    // brand-new player: straight into level 1 (the lobby comes after the first wins)
+    if (AP.save.level === 1 && !AP.save.seen.coach_tap) AP.game.go('level', { n: 1 }); else AP.game.go('lobby');
   });
   fontReady.then(() => document.getElementById('loader').classList.add('hide')); // the HTML loader only covers the script download
   requestAnimationFrame(t => { last = t; frame(t); });
@@ -98,13 +102,13 @@
       // advance the game by `secs` of game time in 1/60 steps (rAF may stall in headless Chrome)
       step(secs) { qaHold = true; const n = Math.max(1, Math.round(secs * 60)); for (let i = 0; i < n; i++) tick(1 / 60); qaHold = false; return QA.state(); },
       state() {
-        return { ready: !AP.boot.active, scene: AP.game.state, modal: AP.game.modal && AP.game.modal.type, trans: AP.trans.active, lang: AP.lang,
+        return { ready: !AP.boot.active, scene: AP.game.state, modal: AP.game.modal && AP.game.modal.type, trans: AP.trans.active, coach: AP.coach.cur && AP.coach.cur.id, lang: AP.lang,
           level: AP.save.level, coins: AP.save.coins, tickets: AP.save.tickets, stars: AP.save.stars, arrows: AP.save.arrows,
           layout: { w: W, h: H, s: AP.ui.scale, portrait: AP.ui.layout.portrait }, events: AP.poki.events.slice(), sdk: AP.poki.log.slice(), board: QA.board() };
       },
       // live board: arrows left, hearts, idle arrows with a tap point on screen and whether they are free, view zoom
       board() {
-        const st = AP.board.cur; if (!st) return null; const L = AP.screens.level;
+        const st = AP.board.cur; if (!st || !st.view) return null; const L = AP.screens.level; // no view before the first frame
         return { n: L.n, diff: L.diff, total: st.arrows.length, left: st.left, hearts: L.hearts, maxHearts: L.maxHearts, busy: AP.board.busy(), zoom: st.view ? st.view.c / st.view.cFit : 1,
           hint: L.hintId, shield: !!L.shield, wand: !!L.wand, boosters: { ...AP.save.boosters },
           arrows: st.arrows.filter(a => a.state === 'idle' && st.alive[a.id]).map(a => ({ id: a.id, at: AP.board.screenOf(a.id), free: AP.board.ray(st.m, st.occ, a).free })) };

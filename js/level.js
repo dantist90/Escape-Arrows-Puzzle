@@ -99,7 +99,8 @@
     },
     // booster bar: hint, shield, wand (each opens the buy window when empty)
     drawBoosters(ctx, r, s, vertical) {
-      const BO = AP.boosters, size = vertical ? Math.min(r.w - 16 * s, 64 * s, (r.h - 40 * s) / 3.6) : Math.min(r.h - 16 * s, 64 * s);
+      const BO = AP.boosters; if (!BO.IN.some(id => BO.open(id, S.n))) return; // FTUE levels: no bar of locks yet
+      const size = vertical ? Math.min(r.w - 16 * s, 64 * s, (r.h - 40 * s) / 3.6) : Math.min(r.h - 16 * s, 64 * s);
       const gap = vertical ? Math.min(24 * s, (r.h - size * 3) / 4) : Math.min(28 * s, (r.w - size * 3) / 4);
       const pos = i => vertical ? [r.x + (r.w - size) / 2, r.y + r.h / 2 - (size * 3 + gap * 2) / 2 + i * (size + gap)] : [r.x + r.w / 2 - (size * 3 + gap * 2) / 2 + i * (size + gap), r.y + (r.h - size) / 2];
       const act = { hint: () => { const f = B().freeIds(); if (!f.length || S.hintId >= 0) return; if (BO.use('hint')) { S.hintId = f[0]; S.hintT = 4; AP.audio.sparkle(); } },
@@ -117,6 +118,7 @@
       ctx.fillStyle = U.rgba(dcol, 0.25); U.rr(ctx, dx, cy - dh / 2, dw, dh, dh / 2); ctx.fill(); ctx.strokeStyle = dcol; ctx.lineWidth = 1.5 * s; ctx.stroke();
       U.text(ctx, label, dx + dw / 2, cy + 0.5, { size: 13 * s, color: '#fff', weight: 900, maxW: dw - 12 * s });
       const hr = 13 * s, gap = 6 * s, n = S.maxHearts, hx0 = r.x + r.w / 2 - (n * hr * 2 + (n - 1) * gap) / 2 + hr;
+      AP.ui.hit('hud_hearts', { x: hx0 - hr * 1.2, y: cy - hr * 1.2, w: n * (hr * 2 + gap) + hr * 0.4, h: hr * 2.4 }); // coach target
       for (let i = 0; i < n; i++) { const full = i < S.hearts; let k = 1;
         if (!full && i === S.hearts && S.heartPop >= 0) k = 1 + Math.sin(Math.min(1, S.heartPop / 0.3) * Math.PI) * 0.5;
         ctx.save(); ctx.translate(hx0 + i * (hr * 2 + gap), cy); ctx.scale(k, k); U.heart(ctx, 0, -hr * 0.85, hr * 2);
@@ -142,7 +144,7 @@
   // ----- win window: stars, reward, Next -----
   AP.modals.win = function (ctx, w, h, m) {
     const s = AP.ui.fitS(380); m.t += AP.game.dt || 0.016; const pw = Math.min(w - 32 * s, 380 * s), ph = 380 * s, x = w / 2 - pw / 2, y = h / 2 - ph / 2;
-    AP.art.panel(ctx, x, y, pw, ph, 24 * s, AP.art.PINK);
+    AP.art.panel(ctx, x, y, pw, ph, 24 * s, AP.art.PINK); AP.art.mascot(ctx, w / 2, y - 14 * s, 28 * s, 'happy', AP.game.t);
     U.text(ctx, AP.t('level_done'), w / 2, y + 40 * s, { size: 26 * s, color: '#fff', weight: 900, stroke: AP.art.PINK, strokeW: 6 * s, maxW: pw - 30 * s });
     for (let i = 0; i < 3; i++) { const k = U.clamp((m.t - 0.2 - i * 0.22) / 0.3, 0, 1), on = i < m.stars; const sx = w / 2 + (i - 1) * 70 * s, sy = y + 112 * s - (i === 1 ? 12 * s : 0);
       ctx.save(); ctx.translate(sx, sy); const sc = on ? U.easeBack(k) : 1; ctx.scale(sc || 0.001, sc || 0.001);
@@ -162,7 +164,7 @@
   // ----- out of hearts: continue (coins / ad), retry, menu -----
   AP.modals.fail = function (ctx, w, h, m) {
     const s = AP.ui.fitS(360); const pw = Math.min(w - 32 * s, 380 * s), ph = 360 * s, x = w / 2 - pw / 2, y = h / 2 - ph / 2; const C = AP.CONFIG.level;
-    AP.art.panel(ctx, x, y, pw, ph, 24 * s, AP.art.RED);
+    AP.art.panel(ctx, x, y, pw, ph, 24 * s, AP.art.RED); AP.art.mascot(ctx, w / 2, y - 14 * s, 28 * s, 'oops', AP.game.t);
     U.text(ctx, AP.t('out_of_hearts'), w / 2, y + 40 * s, { size: 25 * s, color: '#fff', weight: 900, stroke: AP.art.RED, strokeW: 6 * s, maxW: pw - 30 * s });
     U.heart(ctx, w / 2, y + 66 * s, 58 * s); ctx.fillStyle = 'rgba(255,77,109,0.35)'; ctx.fill();
     U.text(ctx, AP.t('out_hint'), w / 2, y + 140 * s, { size: 14 * s, color: AP.art.INK_DIM, weight: 800, maxW: pw - 30 * s });

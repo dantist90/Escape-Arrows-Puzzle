@@ -38,7 +38,9 @@ try {
   for (const [w, h] of SIZES) {
     await page.setViewport({ width: w, height: h });
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await waitReady(page); await step(page, 0.5);
+    await waitReady(page); await step(page, 0.2);
+    // a new player starts in level 1; the lobby layout is checked on its own
+    await page.evaluate(() => { AP.save.seen.coach_tap = 1; QA.goto('lobby'); }); await step(page, 0.3);
     const st = await state(page);
     const hits = await page.evaluate(() => QA.hits());
     const out = hits.filter((r) => r.id !== 'modal_block' && !inside(r, w, h));
@@ -55,10 +57,8 @@ try {
   const solved = await page.evaluate(() => QA.solveAll());
   const bad = solved.filter((r) => r.errs.length || !r.order);
   check(`all ${solved.length} levels valid and solvable`, bad.length === 0, bad.map((r) => `L${r.n}: ${r.errs.join(',') || 'stuck'}`).join(' | '));
-  check('tap Play', await page.evaluate(() => QA.tap('play')));
-  await step(page, 1.5);
-  let st = await state(page);
-  check('level 1 opened', st.scene === 'level' && st.board && st.board.n === 1, st.scene);
+  let st = await step(page, 0.6);
+  check('new player starts in level 1, coach tip "tap" shown', st.scene === 'level' && st.board && st.board.n === 1 && st.coach === 'tap', `${st.scene} coach ${st.coach}`);
   await page.screenshot({ path: path.join(shots, 'level1_390x844.png') });
   // clear the board by tapping free arrows where they are drawn
   const clear = async () => { for (let i = 0; i < 200; i++) { const b = (await state(page)).board; if (!b || b.left === 0) break; const f = b.arrows.find((a) => a.free);
@@ -73,7 +73,8 @@ try {
   let ev = st.events; const iS = ev.indexOf('level / 1 / start'), iC = ev.indexOf('level / 1 / complete');
   check('events: level/1/start then level/1/complete', iS >= 0 && iC > iS, ev.join(' | '));
   check('events: no level/1/fail', !ev.includes('level / 1 / fail'));
-  check('events: button/play/visible + interact', ev.includes('button / play / visible') && ev.includes('button / play / interact'));
+  check('events: button/play/visible in the lobby', ev.includes('button / play / visible'));
+  check('FTUE: tutorial/step-tap start then complete', ev.indexOf('tutorial / step-tap / start') >= 0 && ev.indexOf('tutorial / step-tap / complete') > ev.indexOf('tutorial / step-tap / start'));
   // level 2: tap the blocked arrow 3 times -> out of hearts -> continue for an ad -> finish
   await page.evaluate(() => QA.tap('play')); await step(page, 1.5);
   for (let i = 0; i < 3; i++) { const b = (await state(page)).board; const blk = b.arrows.find((a) => !a.free); if (blk) await page.evaluate((p) => QA.tapAt(p[0], p[1]), blk.at); await step(page, 0.6); }
@@ -86,6 +87,7 @@ try {
   check('continue for an ad -> 1 heart, playing again', st.board.hearts === 1 && !st.modal, `hearts ${st.board.hearts} modal ${st.modal}`);
   st = await clear();
   check('level 2 won after continue', st.modal === 'win' && st.level === 3, `${st.modal} L${st.level}`);
+  check('FTUE: order tip completed, hearts tip shown on level 2', st.events.includes('tutorial / step-order / complete') && st.events.includes('tutorial / step-hearts / start'), st.events.filter((e) => e.startsWith('tutorial')).join(' | '));
   ev = st.events;
   check('events: level/2 start + complete, no fail', ev.includes('level / 2 / start') && ev.includes('level / 2 / complete') && !ev.includes('level / 2 / fail'));
   check('events: rewarded/continue visible + interact', ev.includes('rewarded / continue / visible') && ev.includes('rewarded / continue / interact'));
