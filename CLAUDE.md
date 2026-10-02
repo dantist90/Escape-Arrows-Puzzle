@@ -16,6 +16,7 @@
 ```
 npm install                      # один раз: puppeteer-core для ригов (игре зависимости не нужны)
 node tools/serve.mjs . 8993      # dev-сервер http://localhost:8993  (?qa=1&fast=1&reset=1&uilang=ru&evlog=1)
+node tools/genlevels.mjs         # перепечь levels/levels.js (100 уровней) + таблица метрик
 node tools/probe.mjs             # главный риг: 7 размеров экрана + сценарий + события, скриншоты в shots/
 node tools/build.mjs --zip       # dist/ + EscapeArrows-YYYYMMDD.zip для Poki (без чит-панели)
 node tools/distcheck.mjs         # dist/ грузится сам, ноль 404/внешних запросов, zip = dist/
@@ -38,7 +39,8 @@ Zip собирать только `tools/build.mjs` (свой `tools/zip.mjs`): 
   из `assets/manifest.json` заменяет отрисовку с тем же именем (`AP.assets.draw`).
 - Звук процедурный (`js/audio.js`), без файлов. Тексты: `AP.t(key, vars)`, 9 языков в `js/i18n.js` + `AP.addStrings` в модулях.
 - Сохранение: `AP.save` (`js/save.js`), новые поля — только через `AP.SAVE_DEFAULTS`.
-- Уровни (этап 2): данные уровней — скрипт `levels/levels.js` (`AP.LEVELS = [...]`), не JSON через fetch, чтобы работал standalone.
+- Уровни: `levels/levels.js` (`AP.LEVELS`) генерирует `node tools/genlevels.mjs` — руками не править. Это скрипт, а не JSON через fetch,
+  чтобы работал standalone. После последнего запечённого уровня `AP.levelData(n)` генерирует уровень в игре (`js/gen.js`).
 - QA: `?qa=1` даёт `window.QA` (`state, step, hits, tap, tapAt, goto`). Риги судят по состоянию, не по пикселям.
   Новый экран — добавить его в `QA.state()` и сценарий в `tools/probe.mjs`.
 

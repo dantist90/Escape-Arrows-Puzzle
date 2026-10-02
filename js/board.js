@@ -56,6 +56,7 @@
       st.arrows = m.arrows.map(a => ({ ...a, state: 'idle', p: 0, t: 0, flash: 0, glow: 0, alpha: 1 }));
       st.arrows.forEach(a => { const ty = a.cells[0][1] / Math.max(1, m.h - 1), hy = a.cells[a.cells.length - 1][1] / Math.max(1, m.h - 1); a.col0 = B.colorAt(ty * 0.85); a.col1 = B.colorAt(Math.min(1, hy * 0.85 + 0.15)); });
       st.occ = B.occupancy(m, st.alive);
+      st.mask = level.shape && AP.gen ? AP.gen.maskOf(m.w, m.h, level.shape) : null; // silhouette: dots only inside it
       B.cur = st; return st;
     },
     // board-wide color ramp (top -> bottom) from the current skin
@@ -137,12 +138,13 @@
     // ----- drawing -----
     draw(ctx) {
       const st = B.cur; if (!st || !st.view) return; const v = st.view, R = v.rect; const s = AP.ui.scale;
-      ctx.save(); if (st.shake > 0) ctx.translate(Math.sin(AP.game.t * 70) * st.shake * 5 * s, 0);
+      ctx.save(); ctx.beginPath(); ctx.rect(0, R.y - 4 * s, AP.ui.w, AP.ui.h); ctx.clip(); // a zoomed board never covers the HUD above it
+      if (st.shake > 0) ctx.translate(Math.sin(AP.game.t * 70) * st.shake * 5 * s, 0);
       // dot grid (only the visible part)
       const x0 = Math.max(0, Math.floor((R.x - v.ox) / v.c) - 1), x1 = Math.min(st.m.w, Math.ceil((R.x + R.w - v.ox) / v.c) + 1);
       const y0 = Math.max(0, Math.floor((R.y - v.oy) / v.c) - 1), y1 = Math.min(st.m.h, Math.ceil((R.y + R.h - v.oy) / v.c) + 1);
       ctx.fillStyle = 'rgba(200,180,255,0.22)'; const dr = U.clamp(v.c * 0.05, 1, 3);
-      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { ctx.beginPath(); ctx.arc(v.ox + (x + 0.5) * v.c, v.oy + (y + 0.5) * v.c, dr, 0, Math.PI * 2); ctx.fill(); }
+      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { if (st.mask && !st.mask[y * st.m.w + x]) continue; ctx.beginPath(); ctx.arc(v.ox + (x + 0.5) * v.c, v.oy + (y + 0.5) * v.c, dr, 0, Math.PI * 2); ctx.fill(); }
       // idle arrows under moving ones
       for (const a of st.arrows) if (a.state === 'idle' && st.alive[a.id]) B.drawArrow(ctx, a, v);
       for (const a of st.arrows) if (a.state === 'bump') B.drawArrow(ctx, a, v);

@@ -102,7 +102,17 @@ try {
     check(`${w}x${h}: level 5 arrows and widgets on screen`, !offA.length && !offH.length, offA.map((a) => a.id).concat(offH.map((r) => r.id)).join(' '));
     await page.screenshot({ path: path.join(shots, `level5_${w}x${h}.png`) });
   }
-  await page.setViewport({ width: 390, height: 844 }); await page.evaluate(() => QA.goto('lobby')); await step(page, 0.3);
+  // generated levels: endless ones after the baked list are solvable; the biggest baked level draws fast and zooms
+  const gen = await page.evaluate(() => { const out = []; for (let n = AP.LEVELS.length + 1; n <= AP.LEVELS.length + 12; n++) { const lv = AP.levelData(n); out.push({ n, ok: !!lv && !AP.board.validate(lv).length && !!AP.board.solve(lv) }); } return out; });
+  check('endless levels (after the baked ones) valid and solvable', gen.every((g) => g.ok), gen.filter((g) => !g.ok).map((g) => g.n).join(' '));
+  await page.setViewport({ width: 390, height: 844 });
+  await page.evaluate(() => QA.goto('level', { n: AP.LEVELS.length })); await step(page, 0.3);
+  const ms = await page.evaluate(() => { const t0 = performance.now(); QA.step(1); return (performance.now() - t0) / 60; });
+  check(`level ${solved.length}: frame time under 12 ms (headless, software canvas)`, ms < 12, ms.toFixed(2) + ' ms');
+  const z0 = (await state(page)).board.zoom;
+  check('big level is zoomable, zoom-in button works', (await page.evaluate(() => QA.tap('zoom_in'))) && (await step(page, 0.1)).board.zoom > z0 * 1.3, String(z0));
+  await page.screenshot({ path: path.join(shots, `level${solved.length}_zoomed_390x844.png`) });
+  await page.evaluate(() => QA.goto('lobby')); await step(page, 0.3);
   st = await state(page); ev = st.events;
   check('every sent event is documented in EVENTS.md', undocumented(ev).length === 0, undocumented(ev).join(' | '));
   check('SDK: loadingFinished, gameplay start/stop alternate', st.sdk[0] === 'loadingFinished' && !/start,start|stop,stop/.test(st.sdk.filter((x) => x === 'start' || x === 'stop').join(',')), st.sdk.join(','));

@@ -17,8 +17,9 @@
     it: { level_done: 'Livello superato!', next: 'Avanti', out_of_hearts: 'Cuori finiti!', out_hint: 'Mantieni i progressi e continua', cont: 'Continua', retry: 'Riprova', lobby: 'Menu', cleared: 'fatto' },
   });
 
-  // level n (1-based) -> data; past the hand-made list it loops (stage 2: generated levels)
-  AP.levelData = n => { const L = AP.LEVELS; return L[(n - 1) % L.length]; };
+  // level n (1-based) -> data: baked levels first (levels/levels.js), then generated on the fly with the same generator
+  const genCache = {};
+  AP.levelData = n => { const L = AP.LEVELS; if (n <= L.length) return L[n - 1]; return genCache[n] || (genCache[n] = AP.gen.level(n)); };
 
   const S = AP.screens.level = {
     enter(arg) { S.n = (arg && arg.n) || AP.save.level; S.begin(); AP.poki.gameplayStart(); },
