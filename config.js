@@ -61,13 +61,42 @@ AP.CONFIG = {
       { at: 90, reward: { tickets: 2 } },
       { at: 140, reward: { coins: 200 } },
       { at: 200, reward: { boosters: { shield: 2, wand: 1 } } },
-      { at: 270, reward: { tickets: 3 } },
+      { at: 270, reward: { tickets: 3, skin: 'gold' } },
       { at: 350, reward: { coins: 300 } },
       { at: 440, reward: { boosters: { heart: 2, glow: 2 } } },
       { at: 540, reward: { tickets: 3, coins: 200 } },
       { at: 650, reward: { boosters: { wand: 3 } } },
     ],
     repeatEvery: 120, repeatReward: { coins: 250, tickets: 1 },
+  },
+
+  // ---------- Room (stage 6): decor steps bought with stars; a finished room gives a chest and opens the next room ----------
+  room: {
+    stepCost: [3, 4, 5, 6, 7, 8, 9, 10],   // stars for decor step 1..8 of a room (+ costGrowth per finished room)
+    costGrowth: 2,
+    chest: { coins: 300, tickets: 2, boosters: { wand: 1, hint: 1 } },
+  },
+
+  // ---------- Skins (stage 6): arrow palettes and backgrounds; price in coins, null = Roadmap only ----------
+  skins: {
+    neon: 0, candy: 300, ocean: 400, mint: 500, sunset: 600, galaxy: 800, gold: null,
+  },
+  backgrounds: {
+    violet: 0, midnight: 300, rose: 400, aurora: 600, sunset: 700,
+  },
+
+  // ---------- Daily tasks (stage 6): 3 a day from the pool, a chest for all three ----------
+  daily: {
+    pool: [
+      { kind: 'win', goal: 3, reward: { coins: 60 } },
+      { kind: 'win', goal: 6, reward: { coins: 120, tickets: 1 } },
+      { kind: 'stars3', goal: 2, reward: { coins: 80 } },
+      { kind: 'arrows', goal: 120, reward: { coins: 70 } },
+      { kind: 'arrows', goal: 250, reward: { coins: 120 } },
+      { kind: 'booster', goal: 2, reward: { boosters: { hint: 1 } } },
+      { kind: 'tour', goal: 2, reward: { tickets: 1 } },
+    ],
+    chest: { coins: 200, tickets: 1, boosters: { shield: 1 } },
   },
 
   // ---------- rewarded ads ----------

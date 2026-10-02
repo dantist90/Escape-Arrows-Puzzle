@@ -83,7 +83,7 @@
   }
 
   // ----- boot -----
-  AP.load(); AP.ui.computeLayout(W, H);
+  AP.load(); AP.skins.apply(); AP.ui.computeLayout(W, H);
   const fontReady = (document.fonts && document.fonts.load) ? document.fonts.load('900 16px "ArrowsFont"').catch(() => null) : Promise.resolve();
   const assetsListed = new Promise(res => AP.assets.load(res));
   const firstAssets = assetsListed.then(() => AP.assets.need(['boot', 'first']));

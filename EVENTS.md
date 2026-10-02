@@ -35,8 +35,11 @@
 | `tournament / run-<n> / start\|complete\|fail` | забег турнира: начат за билет или ревард / доигран / брошен | 5 |
 | `tournament / level-<k> / start\|complete\|fail` | уровень k (1..5) забега: открыт / пройден / сдан (сердца кончились или выход) | 5 |
 | `roadmap / milestone-<k> / unlocked` | награда Roadmap получена | 5 |
-| `room / step-<k> / unlocked` | шаг Комнаты куплен | 6 |
-
+| `room / step-<k> / unlocked` | шаг Комнаты куплен (k — сквозной номер шага по всем комнатам) | 6 |
+| `replay / <N> / start\|complete\|fail` | переигровка уровня N из Альбома (свой исход на попытку) | 6 |
+| `cosmetic / <id> / unlocked\|equip` | скин стрелок или фон куплен / получен с Roadmap; выбран | 6 |
+| `daily / task-<kind> / complete` | награда за задание дня забрана (kind: win, stars3, arrows, booster, tour) | 6 |
+| `daily / chest / claimed` | сундук за все 3 задания дня забран | 6 |
 Плейсменты ревардов: `continue` (сердце после проигрыша), `ticket` (вход в турнир), `double` (x2 награда), `booster` (бустер бесплатно).
 
 Уровни турнира не шлют `level / <N> / ...` — у них своя воронка `tournament / level-<k>`, чтобы не смешивать с прогрессом по уровням.

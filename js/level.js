@@ -23,22 +23,24 @@
 
   const S = AP.screens.level = {
     // arg: {n, pre} for the Levels mode, {tour: true, k} for tournament level k (0-based) of the current run
-    enter(arg) { S.tour = !!(arg && arg.tour); S.k = arg && arg.k || 0; S.n = S.tour ? AP.save.level : (arg && arg.n) || AP.save.level; S.pre = (arg && arg.pre) || {}; S.begin(); AP.poki.gameplayStart();
+    enter(arg) { S.tour = !!(arg && arg.tour); S.k = arg && arg.k || 0; S.n = S.tour ? AP.save.level : (arg && arg.n) || AP.save.level; S.replay = !S.tour && S.n < AP.save.level; S.pre = (arg && arg.pre) || {}; S.begin(); AP.poki.gameplayStart();
       if (S.tour) return; const g = AP.boosters.gifts(S.n); if (g.length) { S.newB = g; AP.ui.toast(AP.t('new_booster') + ' ' + g.map(id => AP.t('b_' + id)).join(', ')); } },
-    leave() { if (S.tour) { if (!S.done) S.tourEnd(false); } else AP.poki.levelEnd(S.n, false); AP.poki.gameplayStop(); B().cur = null; }, // quitting mid-level = fail (no-op after an outcome)
+    leave() { if (S.tour) { if (!S.done) S.tourEnd(false); } else S.endFunnel(false); AP.poki.gameplayStop(); B().cur = null; }, // quitting mid-level = fail (no-op after an outcome)
     begin() {
       S.data = S.tour ? AP.tour.levelData(AP.tour.run().n, S.k) : AP.levelData(S.n); S.diff = S.data.diff || 'easy'; B().start(S.data);
       S.hearts = AP.CONFIG.level.hearts; S.maxHearts = S.hearts; S.done = false; S.winT = -1; S.failT = 0; S.heartPop = -1; S.combo = 0; S.comboT = 0; S.touch = null; S.pinch = null; S.tStart = AP.game.t;
       S.shield = false; S.wand = false; S.hintId = -1; S.hintT = 0;
       // pre-level boosters apply to the first attempt only (they were paid in the start window)
       const P = S.pre || {}; if (P.heart) { S.hearts++; S.maxHearts++; } S.warm = P.warmup ? 3 : 0; S.warmT = 0.6; S.glowT = P.glow ? 10 : 0; S.pre = {};
-      if (S.tour) AP.poki.measure('tournament', 'level-' + (S.k + 1), 'start'); else AP.poki.levelStart(S.n, S.diff);
+      if (S.tour) AP.poki.measure('tournament', 'level-' + (S.k + 1), 'start'); else if (S.replay) { S.replayOpen = true; AP.poki.measure('replay', S.n, 'start'); } else AP.poki.levelStart(S.n, S.diff);
     },
+    // one outcome per attempt: level/<N>/... for first attempts, replay/<N>/... for Album replays
+    endFunnel(ok) { if (S.replay) { if (S.replayOpen) { S.replayOpen = false; AP.poki.measure('replay', S.n, ok ? 'complete' : 'fail'); } } else AP.poki.levelEnd(S.n, ok); },
     // tournament level over (cleared, given up or left): points, the AI players move, the breakdown window
     tourEnd(ok) {
       S.done = true; const c = AP.CONFIG.tournament, st = B().cur; const cleared = st ? st.arrows.length - st.left : 0;
       const parts = [cleared * c.arrowPoint, ok ? S.hearts * c.heartPoints : 0, ok ? Math.max(0, Math.round(c.timeBonus - (AP.game.t - S.tStart) * c.timePenalty)) : 0];
-      const points = parts[0] + parts[1] + parts[2]; AP.tour.levelDone(points, ok); return { type: 'tourLevel', points, parts, ok };
+      const points = parts[0] + parts[1] + parts[2]; AP.tasks.bump('arrows', cleared); AP.tour.levelDone(points, ok); return { type: 'tourLevel', points, parts, ok };
     },
     update(dt) {
       B().update(dt, {
@@ -58,7 +60,8 @@
     },
     win() {
       if (S.tour) { S.winT = -2; AP.poki.gameplayStop(); AP.audio.win(); AP.game.modal = S.tourEnd(true); return; }
-      S.winT = -2; AP.poki.levelEnd(S.n, true); AP.poki.gameplayStop(); AP.audio.win();
+      S.winT = -2; S.endFunnel(true); AP.poki.gameplayStop(); AP.audio.win();
+      AP.tasks.bump('win'); AP.tasks.bump('arrows', B().cur ? B().cur.arrows.length : 0); if (S.hearts >= 3) AP.tasks.bump('stars3');
       const C = AP.CONFIG.level; const stars = C.stars[U.clamp(S.hearts, 1, 3) - 1];
       const rew = { coins: C.coins[S.diff] || C.coins.easy };
       if (S.diff === 'hard' || S.diff === 'superhard') rew.tickets = C.ticketOnHard;
@@ -183,7 +186,7 @@
       AP.ui.button('fail_ad', bx, y + 228 * s, bw, 52 * s, AP.t('cont'), { color: AP.art.PINK, size: 19 * s, icon: (c, ix, iy) => AP.art.currency(c, 'ad', ix, iy, 12 * s), iconRight: true,
         onClick: () => { AP.poki.gameplayStop(); AP.poki.rewardedBreak('continue').then(ok => { if (ok) revive(); else AP.poki.gameplayStart(); }); } }); }
     if (S.tour) { AP.ui.button('fail_finish', bx, y + ph - 64 * s, bw, 44 * s, AP.t('give_up'), { color: AP.art.VIOLET, size: 16 * s, onClick: () => { AP.game.modal = S.tourEnd(false); } }); return; }
-    AP.ui.button('fail_retry', bx, y + ph - 64 * s, bw / 2 - 6 * s, 44 * s, AP.t('retry'), { color: AP.art.VIOLET, size: 16 * s, onClick: () => { AP.game.modal = null; AP.poki.levelEnd(S.n, false); S.begin(); AP.poki.gameplayStart(); } });
+    AP.ui.button('fail_retry', bx, y + ph - 64 * s, bw / 2 - 6 * s, 44 * s, AP.t('retry'), { color: AP.art.VIOLET, size: 16 * s, onClick: () => { AP.game.modal = null; S.endFunnel(false); S.begin(); AP.poki.gameplayStart(); } });
     AP.ui.button('fail_lobby', bx + bw / 2 + 6 * s, y + ph - 64 * s, bw / 2 - 6 * s, 44 * s, AP.t('lobby'), { color: '#6f6596', size: 16 * s, onClick: () => { AP.game.modal = null; AP.game.open('lobby'); } });
   };
 })();

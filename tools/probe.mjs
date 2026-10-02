@@ -205,6 +205,57 @@ try {
     check(`${w}x${h}: roadmap window fits`, hits.every((r) => r.id === 'modal_block' || inside(r, w, h)), hits.filter((r) => !inside(r, w, h)).map((r) => r.id).join(' '));
   }
   await page.evaluate(() => { AP.game.modal = null; }); await page.setViewport({ width: 390, height: 844 }); await page.evaluate(() => window.dispatchEvent(new Event('resize')));
+  // ----- stage 6: Room, Album replay, Skins, Daily tasks -----
+  await page.evaluate(() => { AP.game.modal = null; AP.save.level = 30; AP.save.stars = 60; AP.save.coins = 2000; AP.save.room = { k: 0, steps: 0 }; AP.save.seen.coach_roadmap = 1; QA.goto('lobby'); }); await step(page, 0.3);
+  await page.evaluate(() => QA.tap('side_room')); await step(page, 1.5);
+  check('Room opens from the lobby', (await state(page)).scene === 'room');
+  await page.screenshot({ path: path.join(shots, 'room0_390x844.png') });
+  for (let i = 0; i < 8; i++) { await page.evaluate(() => QA.tap('room_buy')); await step(page, 0.6); }
+  st = await state(page);
+  check('8 decor pieces bought with stars -> room chest', st.modal === 'reward' && st.stars === 60 - 52 && [1, 8].every((k) => st.events.includes(`room / step-${k} / unlocked`)), `modal ${st.modal} stars ${st.stars}`);
+  await page.evaluate(() => QA.tap('rew_ok')); await step(page, 0.2);
+  await page.screenshot({ path: path.join(shots, 'room_done_390x844.png') });
+  await page.evaluate(() => QA.tap('room_next')); await step(page, 0.2);
+  check('next room opens', await page.evaluate(() => AP.save.room.k === 1 && AP.save.room.steps === 0));
+  await page.evaluate(() => { AP.save.room.steps = 5; }); await step(page, 0.2);
+  await page.screenshot({ path: path.join(shots, 'room1_390x844.png') });
+  await page.evaluate(() => QA.goto('album')); await step(page, 0.3);
+  await page.screenshot({ path: path.join(shots, 'album_390x844.png') });
+  check('Album lists beaten levels', await page.evaluate(() => QA.hits().some((h) => h.id === 'alb_29')));
+  await page.evaluate(() => QA.tap('alb_29')); await step(page, 0.2);
+  if ((await state(page)).modal === 'start') { await page.evaluate(() => QA.tap('start_go')); }
+  await step(page, 0.5); await adWait(); await step(page, 1.5);
+  st = await state(page);
+  check('Album replay opens level 29 with the replay funnel', st.scene === 'level' && st.board.n === 29 && st.events.includes('replay / 29 / start') && !st.events.includes('level / 29 / start'), `${st.scene} ${st.board && st.board.n}`);
+  st = await clear();
+  check('replay won: progress stays at 30, replay/29/complete', st.modal === 'win' && st.level === 30 && st.events.includes('replay / 29 / complete'), `L${st.level}`);
+  await page.evaluate(() => { AP.game.modal = null; QA.goto('skins'); }); await step(page, 0.3);
+  const c1 = (await state(page)).coins; await page.evaluate(() => QA.tap('sk_candy')); await step(page, 0.2);
+  st = await state(page);
+  check('buy + equip the Candy arrows', st.coins === c1 - 300 && (await page.evaluate(() => AP.save.skin === 'candy' && AP.art.TUBE[0] === AP.skins.PAL.candy[0])) && st.events.includes('cosmetic / candy / unlocked') && st.events.includes('cosmetic / candy / equip'));
+  await page.screenshot({ path: path.join(shots, 'skins_390x844.png') });
+  await page.evaluate(() => QA.tap('sk_tab_bg')); await step(page, 0.1); await page.evaluate(() => QA.tap('sk_midnight')); await step(page, 0.2);
+  check('buy + equip the Midnight background', await page.evaluate(() => AP.save.bg === 'midnight' && AP.art.BG_TOP === AP.skins.BGS.midnight[0]));
+  await page.evaluate(() => { AP.save.skin = 'neon'; AP.save.bg = 'violet'; AP.skins.apply(); QA.goto('lobby'); }); await step(page, 0.3);
+  await page.evaluate(() => { const d = AP.tasks.get(); d.tasks[0].prog = d.tasks[0].goal; }); await step(page, 0.1);
+  await page.evaluate(() => QA.tap('side_tasks')); await step(page, 0.2);
+  check('Daily tasks window', (await state(page)).modal === 'tasks');
+  await page.screenshot({ path: path.join(shots, 'tasks_390x844.png') });
+  await page.evaluate(() => QA.tap('task_0')); await step(page, 0.2);
+  st = await state(page);
+  check('claim a finished task -> reward -> back to tasks', st.modal === 'reward' && st.events.some((e) => /^daily \/ task-/.test(e)), st.modal);
+  await page.evaluate(() => QA.tap('rew_ok')); await step(page, 0.1);
+  check('reward window returns to the tasks window', (await state(page)).modal === 'tasks');
+  for (const [w, h] of [[360, 640], [1280, 720], [844, 390]]) {
+    await page.setViewport({ width: w, height: h }); await page.evaluate(() => window.dispatchEvent(new Event('resize'))); await step(page, 0.1);
+    let hits = await page.evaluate(() => QA.hits());
+    check(`${w}x${h}: tasks window fits`, hits.every((r) => r.id === 'modal_block' || inside(r, w, h)), hits.filter((r) => !inside(r, w, h)).map((r) => r.id).join(' '));
+    for (const sc of ['room', 'skins', 'album']) { await page.evaluate((sc) => { AP.game.modal = null; QA.goto(sc); }, sc); await step(page, 0.2);
+      hits = await page.evaluate(() => QA.hits()); const bad = hits.filter((r) => !inside(r, w, h));
+      check(`${w}x${h}: ${sc} screen fits`, bad.length === 0, bad.map((r) => r.id).join(' ')); await page.screenshot({ path: path.join(shots, `${sc}_${w}x${h}.png`) }); }
+    await page.evaluate(() => { AP.game.modal = { type: 'tasks' }; }); await step(page, 0.1);
+  }
+  await page.evaluate(() => { AP.game.modal = null; }); await page.setViewport({ width: 390, height: 844 }); await page.evaluate(() => window.dispatchEvent(new Event('resize')));
   // generated levels: endless ones after the baked list are solvable; the biggest baked level draws fast and zooms
   const gen = await page.evaluate(() => { const out = []; for (let n = AP.LEVELS.length + 1; n <= AP.LEVELS.length + 12; n++) { const lv = AP.levelData(n); out.push({ n, ok: !!lv && !AP.board.validate(lv).length && !!AP.board.solve(lv) }); } return out; });
   check('endless levels (after the baked ones) valid and solvable', gen.every((g) => g.ok), gen.filter((g) => !g.ok).map((g) => g.n).join(' '));

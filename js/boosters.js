@@ -53,7 +53,7 @@
     // free uses for every booster that opened by level n (once); returns the ids that were just gifted
     gifts(n) { const out = []; for (const id of BO.IN.concat(BO.PRE)) { const c = BO.cfg(id); if (n >= c.unlock && !AP.save.seen['gift_' + id]) {
       AP.save.seen['gift_' + id] = 1; AP.meta.addBooster(id, c.gift); out.push(id); } } if (out.length) AP.persist(); return out; },
-    use(id) { if (BO.count(id) <= 0) return false; AP.meta.addBooster(id, -1); AP.poki.measure('booster', id, 'use'); return true; },
+    use(id) { if (BO.count(id) <= 0) return false; AP.meta.addBooster(id, -1); AP.poki.measure('booster', id, 'use'); AP.tasks.bump('booster'); return true; },
     // round booster button with the stock badge (or a "+" when empty, a lock when closed)
     button(ctx, id, x, y, size, onClick, opts = {}) {
       const open = BO.open(id, opts.lvl), n = BO.count(id), s = AP.ui.scale;

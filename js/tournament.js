@@ -69,7 +69,7 @@
     // a level of the run is over (won or given up): store points, let the bots play it, move on
     levelDone(points, ok) {
       const r = T.run(); if (!r) return; const k = r.idx; r.scores[k] = points; T.botsPlay(k); r.idx++;
-      AP.poki.measure('tournament', 'level-' + (k + 1), ok ? 'complete' : 'fail'); AP.persist();
+      AP.poki.measure('tournament', 'level-' + (k + 1), ok ? 'complete' : 'fail'); AP.tasks.bump('tour'); AP.persist();
     },
     // after the last level: rewards by place, then the Roadmap claims what it can
     finish() {

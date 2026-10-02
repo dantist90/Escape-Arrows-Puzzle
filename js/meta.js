@@ -9,6 +9,7 @@ const M = AP.meta = {
   spend(cost) { if (!M.can(cost)) { AP.ui.toast(AP.t('not_enough')); AP.audio.bump(); return false; } M.add(cost.type, -cost.n); AP.audio.coin(); return true; },
   // adds every currency of a reward object ({coins, tickets, stars, arrows, boosters: {id: n}}); the window is AP.modals.reward
   grant(rew) { for (const k in rew) if (M.TYPES.includes(k)) AP.save[k] = M.get(k) + rew[k];
+    if (rew.skin) { AP.save.owned[rew.skin] = 1; AP.poki.measure('cosmetic', rew.skin, 'unlocked'); }
     if (rew.boosters) for (const id in rew.boosters) { const b = AP.save.boosters || (AP.save.boosters = {}); b[id] = (b[id] || 0) + rew.boosters[id]; }
     AP.persist(); AP.audio.sparkle(); },
   // booster stock (in-level and pre-level boosters share AP.save.boosters)

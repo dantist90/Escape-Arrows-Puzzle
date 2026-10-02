@@ -9,8 +9,8 @@ AP.SAVE_DEFAULTS = () => ({
   seen: {},            // FTUE / coach tips already shown
   tournament: null,    // current run (stage 5)
   roadmap: 0,          // Roadmap milestones claimed
-  room: {},            // Room decor steps bought (stage 6)
-  skin: 'neon', bg: 'violet', owned: { neon: 1, violet: 1 },
+  room: { k: 0, steps: 0 }, // Room: current room index and decor steps bought in it
+  skin: 'neon', bg: 'violet', owned: { neon: 1, violet: 1 }, // equipped arrow palette / background, owned cosmetics
   daily: null,         // daily tasks (stage 6)
   stats: {},           // counters for tasks and analytics
   lang: null, sound: true, music: true,

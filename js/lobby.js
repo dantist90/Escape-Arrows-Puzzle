@@ -1,5 +1,5 @@
 // ---------- Lobby ----------
-// Top: currency bar + Roadmap strip (arrows earned in tournaments, js/roadmap.js). Sides: Room, Album (left), Skins, Tasks (right) — stage 6.
+// Top: currency bar + Roadmap strip (arrows earned in tournaments, js/roadmap.js). Sides: Room, Album (left), Skins, Tasks (right).
 // Bottom: two big buttons — "Level N" (Levels mode) and "Tournament" (locked until AP.CONFIG.tournament.unlockLevel).
 (function () {
   const U = AP.util;
@@ -30,7 +30,9 @@
       const ib = 54 * s, gap = 16 * s, colH = ib * 2 + gap + 22 * s;
       SIDE.forEach(([id, ic], i) => {
         const left = i < 2, x = left ? st.x + 12 * s : st.x + st.w - 12 * s - ib, y = cy - colH / 2 + (i % 2) * (ib + gap + 11 * s);
-        AP.ui.iconButton('side_' + id, x, y, ib, (c, cx, cy2, r) => AP.art.icon(c, ic, cx, cy2, r * 1.3), () => { this.tap(id); AP.ui.toast(AP.t('soon')); }, ['#ff4fb8', '#3fd8ff', '#ffc93a', '#46e08a'][i]);
+        AP.ui.iconButton('side_' + id, x, y, ib, (c, cx, cy2, r) => AP.art.icon(c, ic, cx, cy2, r * 1.3), () => { this.tap(id); if (id === 'tasks') AP.game.modal = { type: 'tasks' }; else AP.game.open(id); }, ['#ff4fb8', '#3fd8ff', '#ffc93a', '#46e08a'][i]);
+        // a dot when something is waiting there: a decor piece is affordable, a task reward can be claimed
+        if ((id === 'room' && AP.room.canBuy()) || (id === 'tasks' && AP.tasks.claimable())) { const dx = x + ib - 4 * s, dy = y + 4 * s; ctx.fillStyle = AP.art.RED; ctx.beginPath(); ctx.arc(dx, dy, 8 * s, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2 * s; ctx.stroke(); }
         U.text(ctx, AP.t(id), x + ib / 2, y + ib + 10 * s, { size: 12 * s, color: '#fff', weight: 800, maxW: ib + 14 * s });
         this.vis(id);
       });
