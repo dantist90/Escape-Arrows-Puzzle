@@ -246,6 +246,11 @@ try {
   check('claim a finished task -> reward -> back to tasks', st.modal === 'reward' && st.events.some((e) => /^daily \/ task-/.test(e)), st.modal);
   await page.evaluate(() => QA.tap('rew_ok')); await step(page, 0.1);
   check('reward window returns to the tasks window', (await state(page)).modal === 'tasks');
+  // a skipped rewarded ad gives nothing
+  await page.evaluate(() => { AP.QA.adFail = true; AP.save.boosters.hint = 0; AP.game.modal = { type: 'buy', id: 'hint' }; }); await step(page, 0.1);
+  await page.evaluate(() => QA.tap('buy_ad')); await adWait(); await step(page, 0.1);
+  check('skipped rewarded ad: no booster, the window stays', await page.evaluate(() => AP.save.boosters.hint === 0 && AP.game.modal && AP.game.modal.type === 'buy'));
+  await page.evaluate(() => { AP.QA.adFail = false; AP.game.modal = { type: 'tasks' }; }); await step(page, 0.1);
   for (const [w, h] of [[360, 640], [1280, 720], [844, 390]]) {
     await page.setViewport({ width: w, height: h }); await page.evaluate(() => window.dispatchEvent(new Event('resize'))); await step(page, 0.1);
     let hits = await page.evaluate(() => QA.hits());
@@ -270,6 +275,10 @@ try {
   st = await state(page); ev = st.events;
   check('every sent event is documented in EVENTS.md', undocumented(ev).length === 0, undocumented(ev).join(' | '));
   check('SDK: loadingFinished, gameplay start/stop alternate', st.sdk[0] === 'loadingFinished' && !/start,start|stop,stop/.test(st.sdk.filter((x) => x === 'start' || x === 'stop').join(',')), st.sdk.join(','));
+  // Poki rules: every ad runs with gameplay stopped, and gameplay never starts while an ad runs
+  { let inAd = false, playing = false, bad = ''; for (const e of st.sdk) { if (e === 'commercialBreak' || e === 'rewardedBreak') { if (playing) bad = bad || 'ad while playing'; inAd = true; }
+      else if (e === 'adEnd') inAd = false; else if (e === 'start') { if (inAd) bad = bad || 'start during an ad'; playing = true; } else if (e === 'stop') playing = false; }
+    check('SDK: ads only with gameplay stopped, no start during an ad', !bad && st.sdk.filter((e) => /Break$/.test(e)).length >= 3, bad || String(st.sdk.filter((e) => /Break$/.test(e)).length) + ' ads'); }
   check('tap gear -> settings', (await page.evaluate(() => QA.tap('bar_gear'))) && (await step(page, 0.1)).modal === 'settings');
   await page.screenshot({ path: path.join(shots, 'settings_390x844.png') });
   check('close settings', (await page.evaluate(() => QA.tap('set_close'))) && (await step(page, 0.1)).modal === null);

@@ -65,6 +65,8 @@
     const sc = scene(); if (sc && sc.onWheel && !blocked() && sc.onWheel(e.clientX, e.clientY, e.deltaY)) e.preventDefault();
   }, { passive: false });
   window.addEventListener('keydown', e => { if (['ArrowUp', 'ArrowDown', ' '].includes(e.key)) e.preventDefault(); });
+  // hidden tab: silence (the audio context is suspended), back: resume
+  document.addEventListener('visibilitychange', () => { if (!AP.audio.ctx) return; if (document.hidden) AP.audio.ctx.suspend(); else AP.audio.resume(); });
 
   // ----- one frame: update everything by dt, then draw (the QA rigs call it directly with a fixed dt) -----
   function tick(dt) {

@@ -43,6 +43,8 @@
       const points = parts[0] + parts[1] + parts[2]; AP.tasks.bump('arrows', cleared); AP.tour.levelDone(points, ok); return { type: 'tourLevel', points, parts, ok };
     },
     update(dt) {
+      // Poki: gameplay runs only while the board is playable (no window open, level not over)
+      if (AP.game.modal || S.done) AP.poki.gameplayStop(); else if (!AP.trans.active) AP.poki.gameplayStart();
       B().update(dt, {
         onHit: () => { if (S.done) return; if (S.shield) { S.shield = false; AP.audio.bump(); AP.audio.sparkle(); return; } S.hearts = Math.max(0, S.hearts - 1); S.heartPop = 0; AP.audio.bump(); AP.audio.heartLost(); S.combo = 0;
           if (S.hearts <= 0) S.failT = 0.45; },

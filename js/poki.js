@@ -14,7 +14,8 @@ const P = AP.poki = {
   // Poki requires gameplayStart() to follow a real player interaction and start/stop to alternate (no duplicates).
   // The game asks for gameplay (want); the SDK event fires on the first tap / key press after that.
   want: false, playing: false, interacted: false, log: [], events: [],
-  sdkStart() { if (P.playing || !P.want || !P.interacted) return; P.playing = true; P.log.push('start'); if (P.sdk) P.sdk.gameplayStart(); },
+  // never during an ad: a start requested while an ad runs fires when it ends (finish() calls sdkStart again)
+  sdkStart() { if (P.playing || !P.want || !P.interacted || P.adRunning) return; P.playing = true; P.log.push('start'); if (P.sdk) P.sdk.gameplayStart(); },
   gameplayStart() { P.want = true; P.sdkStart(); },
   gameplayStop() { P.want = false; if (!P.playing) return; P.playing = false; P.log.push('stop'); if (P.sdk) P.sdk.gameplayStop(); },
   onInteract() { P.interacted = true; P.sdkStart(); },
@@ -37,8 +38,9 @@ const P = AP.poki = {
   // Interstitial. Returns a promise; audio is muted for the duration.
   commercialBreak() {
     if (P.adRunning) return Promise.resolve();
+    if (P.playing) P.gameplayStop();
     P.adRunning = true; AP.audio.setAdMute(true); P.log.push('commercialBreak');
-    const finish = () => { P.adRunning = false; AP.audio.setAdMute(false); };
+    const finish = () => { P.adRunning = false; P.log.push('adEnd'); AP.audio.setAdMute(false); P.sdkStart(); };
     if (P.sdk) return P.sdk.commercialBreak(() => {}).then(finish).catch(finish);
     return P.fakeBreak('AD BREAK (interstitial)', 1.5).then(finish);
   },
@@ -46,10 +48,11 @@ const P = AP.poki = {
   rewardedBreak(placement) {
     if (P.adRunning) return Promise.resolve(false);
     if (placement) P.measure('rewarded', placement, 'interact');
+    if (P.playing) { const want = P.want; P.gameplayStop(); P.want = want; } // stop for the ad, resume after it if the game still wants gameplay
     P.adRunning = true; AP.audio.setAdMute(true); P.log.push('rewardedBreak');
-    const finish = ok => { P.adRunning = false; AP.audio.setAdMute(false); return ok; };
+    const finish = ok => { P.adRunning = false; P.log.push('adEnd'); AP.audio.setAdMute(false); P.sdkStart(); return ok; };
     if (P.sdk) return P.sdk.rewardedBreak(() => {}).then(finish).catch(() => finish(false));
-    return P.fakeBreak('REWARDED AD', 2).then(() => finish(true));
+    return P.fakeBreak('REWARDED AD', 2).then(() => finish(!AP.QA.adFail)); // QA: AP.QA.adFail = true simulates a skipped ad
   },
   // a rewarded button became visible: send rewarded/<placement>/visible once per screen visit (the caller resets `shown`)
   shown: {},
