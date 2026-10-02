@@ -22,19 +22,27 @@
   AP.levelData = n => { const L = AP.LEVELS; if (n <= L.length) return L[n - 1]; return genCache[n] || (genCache[n] = AP.gen.level(n)); };
 
   const S = AP.screens.level = {
-    enter(arg) { S.n = (arg && arg.n) || AP.save.level; S.begin(); AP.poki.gameplayStart(); },
+    enter(arg) { S.n = (arg && arg.n) || AP.save.level; S.pre = (arg && arg.pre) || {}; S.begin(); AP.poki.gameplayStart();
+      const g = AP.boosters.gifts(S.n); if (g.length) { S.newB = g; AP.ui.toast(AP.t('new_booster') + ' ' + g.map(id => AP.t('b_' + id)).join(', ')); } },
     leave() { AP.poki.levelEnd(S.n, false); AP.poki.gameplayStop(); B().cur = null; }, // quitting mid-level = fail (no-op after an outcome)
     begin() {
       S.data = AP.levelData(S.n); S.diff = S.data.diff || 'easy'; B().start(S.data);
       S.hearts = AP.CONFIG.level.hearts; S.maxHearts = S.hearts; S.done = false; S.winT = -1; S.failT = 0; S.heartPop = -1; S.combo = 0; S.comboT = 0; S.touch = null; S.pinch = null; S.tStart = AP.game.t;
+      S.shield = false; S.wand = false; S.hintId = -1; S.hintT = 0;
+      // pre-level boosters apply to the first attempt only (they were paid in the start window)
+      const P = S.pre || {}; if (P.heart) { S.hearts++; S.maxHearts++; } S.warm = P.warmup ? 3 : 0; S.warmT = 0.6; S.glowT = P.glow ? 10 : 0; S.pre = {};
       AP.poki.levelStart(S.n, S.diff);
     },
     update(dt) {
       B().update(dt, {
-        onHit: () => { if (S.done) return; S.hearts = Math.max(0, S.hearts - 1); S.heartPop = 0; AP.audio.bump(); AP.audio.heartLost(); S.combo = 0;
+        onHit: () => { if (S.done) return; if (S.shield) { S.shield = false; AP.audio.bump(); AP.audio.sparkle(); return; } S.hearts = Math.max(0, S.hearts - 1); S.heartPop = 0; AP.audio.bump(); AP.audio.heartLost(); S.combo = 0;
           if (S.hearts <= 0) S.failT = 0.45; },
       });
       if (S.failT > 0) { S.failT -= dt; if (S.failT <= 0 && !S.done) { AP.game.modal = { type: 'fail' }; AP.poki.gameplayStop(); } }
+      // warm-up: free arrows fly away by themselves; glow: free arrows shine; hint: the shown arrow pulses
+      if (S.warm > 0 && !AP.game.modal) { S.warmT -= dt; if (S.warmT <= 0) { const f = B().freeIds(); if (f.length) { B().tapArrow(U.pick(f)); AP.audio.fly(3 - S.warm); } S.warm--; S.warmT = 0.3; } }
+      if (S.glowT > 0) { S.glowT -= dt; B().freeIds().forEach(id => { B().cur.arrows[id].glow = Math.max(B().cur.arrows[id].glow, 0.55); }); }
+      if (S.hintId >= 0) { const a = B().cur && B().cur.arrows[S.hintId]; S.hintT -= dt; if (!a || a.state !== 'idle' || S.hintT <= 0) S.hintId = -1; else a.glow = 0.6 + 0.4 * Math.sin(AP.game.t * 8); }
       if (S.heartPop >= 0) { S.heartPop += dt; if (S.heartPop > 0.6) S.heartPop = -1; }
       S.comboT = Math.max(0, S.comboT - dt); if (!S.comboT) S.combo = 0;
       const st = B().cur;
@@ -65,6 +73,7 @@
     onWheel(x, y, dy) { B().zoomAt(x, y, Math.exp(-dy * 0.0015)); return true; },
     tap(x, y) {
       if (AP.game.modal) return; const a = B().pick(x, y); if (!a) return;
+      if (S.wand) { if (AP.boosters.use('wand') && B().removeArrow(a.id)) { S.wand = false; AP.audio.sparkle(); } return; }
       const r = B().tapArrow(a.id);
       if (r === 'fly') { S.combo++; S.comboT = 1.2; AP.audio.fly(S.combo); }
       else if (r === 'bump') AP.audio.tick();
@@ -73,7 +82,7 @@
     // ----- drawing -----
     rects() {
       const L = AP.ui.layout, s = L.s; const hudH = 44 * s; const st = L.stage;
-      return { hud: { x: st.x, y: st.y, w: st.w, h: hudH }, board: { x: st.x + 6 * s, y: st.y + hudH, w: st.w - 12 * s, h: Math.max(40, L.foot.y + L.foot.h * 0.3 - st.y - hudH) } };
+      return { hud: { x: st.x, y: st.y, w: st.w, h: hudH }, board: { x: st.x + 6 * s, y: st.y + hudH, w: st.w - 12 * s, h: Math.max(40, L.foot.y - st.y - hudH) }, foot: L.foot };
     },
     draw(ctx, w, h) {
       const L = AP.ui.layout, s = L.s; AP.art.background(ctx, w, h, AP.game.t);
@@ -81,6 +90,18 @@
       AP.game.topBar(ctx, { back: () => { AP.audio.click(); AP.game.open('lobby'); }, pills: ['coins'], title: AP.t('level_n', { n: S.n }) });
       S.drawHud(ctx, R.hud, s);
       if (B().cur && B().zoomable()) S.drawZoom(ctx, R.board, s);
+      S.drawBoosters(ctx, R.foot, s);
+      if (S.wand) { const ty = R.board.y + 14 * s; ctx.fillStyle = 'rgba(15,4,45,0.85)'; U.rr(ctx, w / 2 - 120 * s, ty, 240 * s, 32 * s, 16 * s); ctx.fill(); U.text(ctx, AP.t('pick_arrow'), w / 2, ty + 16 * s, { size: 14 * s, color: '#fff', weight: 800, maxW: 224 * s }); }
+    },
+    // booster bar: hint, shield, wand (each opens the buy window when empty)
+    drawBoosters(ctx, r, s) {
+      const BO = AP.boosters, size = Math.min(r.h - 16 * s, 64 * s), gap = Math.min(28 * s, (r.w - size * 3) / 4), x0 = r.x + r.w / 2 - (size * 3 + gap * 2) / 2, y = r.y + (r.h - size) / 2;
+      const act = { hint: () => { const f = B().freeIds(); if (!f.length || S.hintId >= 0) return; if (BO.use('hint')) { S.hintId = f[0]; S.hintT = 4; AP.audio.sparkle(); } },
+        shield: () => { if (S.shield) return; if (BO.use('shield')) { S.shield = true; AP.audio.sparkle(); } },
+        wand: () => { S.wand = !S.wand; AP.audio.click(); } };
+      BO.IN.forEach((id, i) => BO.button(ctx, id, x0 + i * (size + gap), y, size, () => {
+        if (S.done || B().busy() && id !== 'shield') return; if (id === 'wand' && S.wand) return act.wand();
+        if (BO.count(id) <= 0) { AP.audio.click(); AP.game.modal = { type: 'buy', id }; return; } act[id](); }, { lvl: S.n, active: (id === 'shield' && S.shield) || (id === 'wand' && S.wand) }));
     },
     drawHud(ctx, r, s) {
       const st = B().cur; const cy = r.y + r.h / 2;
@@ -94,6 +115,7 @@
         if (!full && i === S.hearts && S.heartPop >= 0) k = 1 + Math.sin(Math.min(1, S.heartPop / 0.3) * Math.PI) * 0.5;
         ctx.save(); ctx.translate(hx0 + i * (hr * 2 + gap), cy); ctx.scale(k, k); U.heart(ctx, 0, -hr * 0.85, hr * 2);
         ctx.fillStyle = full ? '#ff4d6d' : 'rgba(255,255,255,0.18)'; if (full) { ctx.shadowColor = '#ff4d6d'; ctx.shadowBlur = 8 * s; } ctx.fill(); ctx.restore(); }
+      if (S.shield) AP.art.icon(ctx, 'shield', hx0 + n * (hr * 2 + gap) - hr * 0.2, cy, hr * 0.9);
       if (!st) return; const total = st.arrows.length, pct = Math.round((total - st.left) / total * 100);
       const pw = Math.min(r.w * 0.28, 120 * s), ph = 10 * s, px = r.x + r.w - 12 * s - pw;
       ctx.fillStyle = 'rgba(10,2,40,0.6)'; U.rr(ctx, px, cy - ph / 2, pw, ph, ph / 2); ctx.fill();
@@ -113,7 +135,7 @@
 
   // ----- win window: stars, reward, Next -----
   AP.modals.win = function (ctx, w, h, m) {
-    const s = AP.ui.layout.s; m.t += AP.game.dt || 0.016; const pw = Math.min(w - 32 * s, 380 * s), ph = 330 * s, x = w / 2 - pw / 2, y = h / 2 - ph / 2;
+    const s = AP.ui.layout.s; m.t += AP.game.dt || 0.016; const pw = Math.min(w - 32 * s, 380 * s), ph = 380 * s, x = w / 2 - pw / 2, y = h / 2 - ph / 2;
     AP.art.panel(ctx, x, y, pw, ph, 24 * s, AP.art.PINK);
     U.text(ctx, AP.t('level_done'), w / 2, y + 40 * s, { size: 26 * s, color: '#fff', weight: 900, stroke: AP.art.PINK, strokeW: 6 * s, maxW: pw - 30 * s });
     for (let i = 0; i < 3; i++) { const k = U.clamp((m.t - 0.2 - i * 0.22) / 0.3, 0, 1), on = i < m.stars; const sx = w / 2 + (i - 1) * 70 * s, sy = y + 112 * s - (i === 1 ? 12 * s : 0);
@@ -123,8 +145,11 @@
     const rw = Object.keys(m.rew).filter(k => m.rew[k] > 0); const cw = 96 * s, rx0 = w / 2 - (rw.length * cw + (rw.length - 1) * 8 * s) / 2;
     rw.forEach((k, i) => AP.art.pill(ctx, rx0 + i * (cw + 8 * s), y + 170 * s, cw, 34 * s, k, '+' + m.rew[k], s));
     const bw = pw - 48 * s;
-    AP.ui.button('win_next', x + 24 * s, y + ph - 116 * s, bw, 58 * s, AP.t('next'), { color: AP.art.GREEN, size: 22 * s, onClick: () => {
-      AP.game.modal = null; const n = AP.save.level; AP.game.open('level', { n }, { ad: n >= AP.CONFIG.level.adFromLevel }); } });
+    // x2 coins for a rewarded ad (once)
+    if (!m.doubled && m.rew.coins) { AP.poki.rewardedVisible('double');
+      AP.ui.button('win_double', x + pw / 2 - 70 * s, y + 210 * s, 140 * s, 36 * s, 'x2', { color: AP.art.PINK, size: 17 * s, icon: (c, ix, iy) => AP.art.currency(c, 'ad', ix, iy, 10 * s), iconRight: true,
+        onClick: () => AP.poki.rewardedBreak('double').then(ok => { if (ok && !m.doubled) { m.doubled = true; AP.meta.grant({ coins: m.rew.coins }); m.rew.coins *= 2; } }) }); }
+    AP.ui.button('win_next', x + 24 * s, y + ph - 116 * s, bw, 58 * s, AP.t('next'), { color: AP.art.GREEN, size: 22 * s, onClick: () => AP.playLevel(AP.save.level) });
     AP.ui.button('win_lobby', x + pw / 2 - 80 * s, y + ph - 50 * s, 160 * s, 38 * s, AP.t('lobby'), { color: AP.art.VIOLET, size: 16 * s, onClick: () => { AP.game.modal = null; AP.game.open('lobby'); } });
   };
 

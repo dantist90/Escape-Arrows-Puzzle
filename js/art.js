@@ -140,6 +140,19 @@ const ART = AP.art = {};
       case 'sound': L([[-0.75, -0.25], [-0.35, -0.25], [0.1, -0.65], [0.1, 0.65], [-0.35, 0.25], [-0.75, 0.25]], true); ctx.fill(); ctx.beginPath(); ctx.arc(x + r * 0.15, y, r * 0.6, -0.8, 0.8); ctx.stroke(); break;
       case 'music': ctx.beginPath(); ctx.ellipse(x - r * 0.4, y + r * 0.5, r * 0.3, r * 0.22, -0.3, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.ellipse(x + r * 0.5, y + r * 0.35, r * 0.3, r * 0.22, -0.3, 0, Math.PI * 2); ctx.fill();
         L([[-0.12, 0.5], [-0.12, -0.6], [0.78, -0.75], [0.78, 0.35]]); ctx.stroke(); break;
+      // boosters
+      case 'hint': ctx.fillStyle = '#ffe066'; ctx.beginPath(); ctx.arc(x, y - r * 0.2, r * 0.62, Math.PI * 0.8, Math.PI * 2.2); ctx.lineTo(x + r * 0.3, y + r * 0.45); ctx.lineTo(x - r * 0.3, y + r * 0.45); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = col; U.rr(ctx, x - r * 0.3, y + r * 0.52, r * 0.6, r * 0.32, r * 0.08); ctx.fill(); ctx.strokeStyle = '#fff8c8'; ctx.lineWidth = r * 0.12; ctx.beginPath(); ctx.arc(x - r * 0.15, y - r * 0.3, r * 0.25, Math.PI, Math.PI * 1.5); ctx.stroke(); break;
+      case 'shield': L([[0, -0.85], [0.72, -0.55], [0.62, 0.2], [0, 0.85], [-0.62, 0.2], [-0.72, -0.55]], true); ctx.fillStyle = '#3fd8ff'; ctx.fill(); ctx.strokeStyle = col; ctx.stroke();
+        L([[-0.28, 0], [-0.05, 0.25], [0.32, -0.25]]); ctx.stroke(); break;
+      case 'wand': ctx.lineWidth = r * 0.26; L([[-0.7, 0.7], [0.25, -0.25]]); ctx.stroke(); ctx.fillStyle = '#ffe066'; U.star(ctx, x + r * 0.42, y - r * 0.42, r * 0.48); ctx.fill();
+        ART.sparkle(ctx, x - r * 0.45, y - r * 0.55, r * 0.25, '#fff'); ART.sparkle(ctx, x + r * 0.75, y + r * 0.25, r * 0.2, '#fff'); break;
+      case 'heartplus': U.heart(ctx, x - r * 0.1, y - r * 0.75, r * 1.6); ctx.fillStyle = '#ff4d6d'; ctx.fill(); ctx.lineWidth = r * 0.22;
+        L([[0.55, 0.2], [0.55, 0.9]]); ctx.stroke(); L([[0.2, 0.55], [0.9, 0.55]]); ctx.stroke(); break;
+      case 'bolt': L([[0.15, -0.9], [-0.55, 0.12], [-0.02, 0.12], [-0.2, 0.9], [0.55, -0.15], [0.02, -0.15]], true); ctx.fillStyle = '#ffe066'; ctx.fill(); break;
+      case 'eye': ctx.beginPath(); ctx.ellipse(x, y, r * 0.85, r * 0.5, 0, 0, Math.PI * 2); ctx.stroke(); ctx.fillStyle = '#3fd8ff'; ctx.beginPath(); ctx.arc(x, y, r * 0.32, 0, Math.PI * 2); ctx.fill();
+        ART.sparkle(ctx, x + r * 0.7, y - r * 0.65, r * 0.28, '#fff'); break;
+      case 'plus': L([[-0.6, 0], [0.6, 0]]); ctx.stroke(); L([[0, -0.6], [0, 0.6]]); ctx.stroke(); break;
       default: ctx.beginPath(); ctx.arc(x, y, r * 0.5, 0, Math.PI * 2); ctx.fill();
     }
     ctx.restore();

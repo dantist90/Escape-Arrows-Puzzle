@@ -33,12 +33,12 @@
         this.vis(id);
       });
       // ----- bottom buttons -----
-      const ft = L.foot, bh = Math.min(ft.h - 20 * s, 72 * s), by = ft.y + (ft.h - bh) / 2, maxW = Math.min(ft.w - 36 * s, 620 * s), bw = (maxW - 12 * s) / 2, bx = ft.x + ft.w / 2 - maxW / 2;
-      AP.ui.button('play', bx, by, bw, bh, AP.t('level_n', { n: AP.save.level }), { color: AP.art.PINK, size: 22 * s, icon: (c, x, y) => AP.art.icon(c, 'play', x, y, 10 * s),
-        onClick: () => { this.tap('play'); AP.game.open('level', { n: AP.save.level }, { ad: AP.save.level >= AP.CONFIG.level.adFromLevel }); } });
+      const ft = L.foot, bh = Math.min(ft.h - 20 * s, 72 * s, h * 0.12), by = ft.y + (ft.h - bh) / 2, maxW = Math.min(ft.w - 36 * s, 620 * s), bw = (maxW - 12 * s) / 2, bx = ft.x + ft.w / 2 - maxW / 2;
+      AP.ui.button('play', bx, by, bw, bh, AP.t('level_n', { n: AP.save.level }), { color: AP.art.PINK, size: Math.min(22 * s, bh * 0.36), icon: (c, x, y) => AP.art.icon(c, 'play', x, y, 10 * s),
+        onClick: () => { this.tap('play'); AP.playLevel(AP.save.level); } });
       this.vis('play');
       const tl = AP.CONFIG.tournament.unlockLevel, open = unlocked(tl);
-      AP.ui.button('tour', bx + bw + 12 * s, by, bw, bh, AP.t('tournament'), { color: open ? AP.art.YELLOW : '#6f6596', size: 20 * s,
+      AP.ui.button('tour', bx + bw + 12 * s, by, bw, bh, AP.t('tournament'), { color: open ? AP.art.YELLOW : '#6f6596', size: Math.min(20 * s, bh * 0.33),
         icon: (c, x, y) => AP.art.icon(c, open ? 'trophy' : 'lock', x, y, 10 * s),
         onClick: () => { this.tap('tournament'); AP.ui.toast(open ? AP.t('soon') : AP.t('unlock_at', { n: tl })); } });
       this.vis('tournament');

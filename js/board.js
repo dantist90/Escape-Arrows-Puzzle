@@ -62,7 +62,7 @@
     // board-wide color ramp (top -> bottom) from the current skin
     colorAt(t) { const C = AP.art.TUBE; const k = U.clamp(t, 0, 1) * (C.length - 1); const i = Math.min(C.length - 2, Math.floor(k)); return U.mix(C[i], C[i + 1], k - i); },
     freeIds() { const st = B.cur; if (!st) return []; return st.arrows.filter(a => a.state === 'idle' && st.alive[a.id] && B.ray(st.m, st.occ, a).free).map(a => a.id); },
-    busy() { const st = B.cur; return !!st && st.arrows.some(a => a.state === 'fly' || a.state === 'bump'); },
+    busy() { const st = B.cur; return !!st && st.arrows.some(a => a.state === 'fly' || a.state === 'bump' || a.state === 'pop'); },
 
     // path the arrow travels: its own cells then the ray cells (far enough to leave the screen)
     makePath(a, extra) { const path = a.cells.map(c => [c[0], c[1]]); const h = a.cells[a.cells.length - 1];
@@ -72,6 +72,13 @@
     bodyPts(a) { const n = a.cells.length; if (a.state === 'idle' || !a.path) return a.cells; const s0 = a.p, s1 = a.p + n - 1; const pts = [B.pointAt(a.path, s0)];
       for (let i = Math.floor(s0) + 1; i < s1; i++) pts.push(a.path[i]); pts.push(B.pointAt(a.path, s1)); return pts; },
 
+    // magic wand: the arrow pops in place (it may be blocked, so it does not fly through others)
+    removeArrow(id) {
+      const st = B.cur; const a = st && st.arrows[id]; if (!a || a.state !== 'idle' || !st.alive[id]) return false;
+      st.alive[id] = false; st.left--; st.occ = B.occupancy(st.m, st.alive); a.state = 'pop'; a.t = 0;
+      if (st.view) a.cells.forEach(c => { const p = B.toScreen(c); AP.emit(3, () => ({ x: p[0], y: p[1], vx: U.rand(-90, 90), vy: U.rand(-90, 90), drag: 3, r: U.rand(2, 4) * AP.ui.scale, life: 0.6, maxLife: 0.6, color: U.pick(['#fff', '#ffe066', a.col1]), layer: 0 })); });
+      return true;
+    },
     // ----- actions: returns 'fly' | 'bump' | null -----
     tapArrow(id) {
       const st = B.cur; const a = st && st.arrows[id]; if (!a || a.state !== 'idle' || !st.alive[id]) return null;
@@ -93,6 +100,7 @@
         if (a.state === 'fly') { a.t += dt; a.v += dt * 70; a.p += a.v * dt;
           if (st.view && Math.random() < 0.9) { const hp = B.pointAt(a.path, a.p + a.cells.length - 1); B.trail(st, hp, a.col1); }
           if (a.p >= a.end) { a.state = 'gone'; if (ev.onGone) ev.onGone(a); } }
+        else if (a.state === 'pop') { a.t += dt; if (a.t > 0.35) { a.state = 'gone'; if (ev.onGone) ev.onGone(a); } }
         else if (a.state === 'bump') { a.t += dt; const go = 0.1 + 0.035 * a.reach, back = 0.22;
           if (a.t < go) a.p = a.reach * U.easeIn(a.t / go);
           else { if (!a.hit) { a.hit = true; a.flash = 1; const b = st.arrows[a.blocker]; if (b) b.flash = 1; st.shake = 1; if (ev.onHit) ev.onHit(a); }
@@ -149,6 +157,7 @@
       for (const a of st.arrows) if (a.state === 'idle' && st.alive[a.id]) B.drawArrow(ctx, a, v);
       for (const a of st.arrows) if (a.state === 'bump') B.drawArrow(ctx, a, v);
       for (const a of st.arrows) if (a.state === 'fly') B.drawArrow(ctx, a, v);
+      for (const a of st.arrows) if (a.state === 'pop') { ctx.save(); ctx.globalAlpha = Math.max(0, 1 - a.t / 0.35); a.glow = 1; B.drawArrow(ctx, a, v); ctx.restore(); }
       ctx.restore();
     },
     drawArrow(ctx, a, v) {
