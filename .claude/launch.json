@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "arrows",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tools/serve.mjs", ".", "8993"],
+      "port": 8993
+    }
+  ]
+}

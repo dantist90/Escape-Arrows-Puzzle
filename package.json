@@ -1,0 +1,20 @@
+{
+  "name": "escape-arrows-puzzle",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Escape Arrows Puzzle — neon arrow-escape puzzle for Poki (canvas 2D, no framework, procedural art & audio)",
+  "type": "module",
+  "scripts": {
+    "start": "node tools/serve.mjs . 8993",
+    "probe": "node tools/probe.mjs",
+    "build": "node tools/build.mjs --zip",
+    "distcheck": "node tools/distcheck.mjs",
+    "pack": "node tools/pack-standalone.mjs"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.2.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,21 @@
+@font-face { font-family: "ArrowsFont"; src: url("../assets/fonts/game.woff2") format("woff2"), url("../assets/fonts/game.woff") format("woff"); font-weight: 400 900; font-display: swap; }
+html, body {
+  margin: 0; padding: 0; width: 100%; height: 100%;
+  overflow: hidden; background: #2a0b6e;
+  touch-action: none; -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
+}
+#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+/* invisible probe: the game reads the safe-area insets (notch, home bar) from its padding (AP.ui.readSafe) */
+#safe { position: fixed; inset: 0; pointer-events: none; visibility: hidden;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+/* HTML loader: covers the script download only, the canvas loader (AP.boot) takes over */
+#loader {
+  position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+  background: linear-gradient(180deg, #2a0b6e, #4a1bb0); z-index: 10; transition: opacity .4s;
+}
+#loader.hide { opacity: 0; pointer-events: none; }
+#loader .arrow { width: 64px; height: 14px; border-radius: 7px; background: linear-gradient(90deg, #ffb020, #ff4fb8, #a24bff);
+  box-shadow: 0 0 18px #ff4fb8; position: relative; animation: fly 1s infinite ease-in-out; }
+#loader .arrow::after { content: ""; position: absolute; right: -14px; top: -9px; border-left: 20px solid #a24bff; border-top: 16px solid transparent; border-bottom: 16px solid transparent; }
+@keyframes fly { 0% { transform: translateX(-30px); opacity: .4; } 50% { transform: translateX(30px); opacity: 1; } 100% { transform: translateX(-30px); opacity: .4; } }
