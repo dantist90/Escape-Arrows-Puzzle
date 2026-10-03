@@ -68,18 +68,22 @@
 
   // ----- buy window: one booster for coins or for a rewarded ad -----
   AP.modals.buy = function (ctx, w, h, m) {
-    const s = AP.ui.fitS(330), id = m.id, c = BO.cfg(id); const pw = Math.min(w - 32 * s, 360 * s), ph = 330 * s, x = w / 2 - pw / 2, y = h / 2 - ph / 2;
+    const s = AP.ui.fitS(300), id = m.id, c = BO.cfg(id); const pw = Math.min(w - 32 * s, 380 * s), ph = 300 * s, x = w / 2 - pw / 2, y = h / 2 - ph / 2;
     AP.art.panel(ctx, x, y, pw, ph, 24 * s, COL[id]);
     U.text(ctx, AP.t('b_' + id), w / 2, y + 36 * s, { size: 23 * s, color: '#fff', weight: 900, maxW: pw - 90 * s });
     AP.ui.iconButton('buy_close', x + pw - 46 * s, y + 12 * s, 36 * s, (cc, cx, cy, r) => AP.art.icon(cc, 'close', cx, cy, r), () => { AP.audio.click(); AP.game.modal = m.back || null; });
-    AP.art.glow(ctx, w / 2, y + 108 * s, 60 * s, 0.4, COL[id]); AP.art.candyDisc(ctx, w / 2, y + 108 * s, 40 * s, COL[id]); AP.art.icon(ctx, ICON[id], w / 2, y + 106 * s, 24 * s);
+    const ix = w / 2, iy = y + 108 * s;
+    AP.art.glow(ctx, ix, iy, 60 * s, 0.4, COL[id]); AP.art.candyDisc(ctx, ix, iy, 40 * s, COL[id]); AP.art.icon(ctx, ICON[id], ix, iy - 2 * s, 24 * s);
+    // what you get: x1 on the icon, bottom right
+    U.text(ctx, 'x1', ix + 34 * s, iy + 30 * s, { size: 20 * s, color: '#fff', weight: 900, stroke: '#3a1670', strokeW: 5 * s });
     U.wrap(ctx, AP.t('bd_' + id), w / 2, y + 172 * s, pw - 40 * s, 19 * s, { size: 15 * s, color: AP.art.INK_DIM, weight: 800, maxLines: 2 });
-    const bw = pw - 48 * s, done = () => { AP.audio.sparkle(); AP.game.modal = m.back || null; if (m.after) m.after(); };
-    AP.ui.button('buy_coins', x + 24 * s, y + ph - 128 * s, bw, 50 * s, '+1  ' + c.price, { color: AP.art.YELLOW, size: 19 * s, icon: (cc, ix, iy) => AP.art.currency(cc, 'coins', ix, iy, 11 * s), iconRight: true,
-      onClick: () => { if (AP.meta.spend({ type: 'coins', n: c.price })) { AP.meta.addBooster(id, 1); done(); } } });
+    // one row: rewarded ad on the left, coins on the right
+    const gap = 12 * s, bw = (pw - 48 * s - gap) / 2, by = y + ph - 74 * s, done = () => { AP.audio.sparkle(); AP.game.modal = m.back || null; if (m.after) m.after(); };
     AP.poki.rewardedVisible('booster');
-    AP.ui.button('buy_ad', x + 24 * s, y + ph - 68 * s, bw, 50 * s, '+1  ' + AP.t('free'), { color: AP.art.PINK, size: 19 * s, icon: (cc, ix, iy) => AP.art.currency(cc, 'ad', ix, iy, 12 * s), iconRight: true,
+    AP.ui.button('buy_ad', x + 24 * s, by, bw, 54 * s, AP.t('free'), { color: AP.art.PINK, size: 18 * s, icon: (cc, iix, iiy) => AP.art.currency(cc, 'ad', iix, iiy, 12 * s), iconRight: true,
       onClick: () => { const wasPlaying = AP.poki.playing; AP.poki.gameplayStop(); AP.poki.rewardedBreak('booster').then(ok => { if (ok) { AP.meta.addBooster(id, 1); done(); } if (wasPlaying) AP.poki.gameplayStart(); }); } });
+    AP.ui.button('buy_coins', x + 24 * s + bw + gap, by, bw, 54 * s, String(c.price), { color: AP.art.BUY, size: 20 * s, icon: (cc, iix, iiy) => AP.art.currency(cc, 'coins', iix, iiy, 11 * s), iconRight: true,
+      onClick: () => { if (AP.meta.spend({ type: 'coins', n: c.price })) { AP.meta.addBooster(id, 1); done(); } } });
   };
 
   // ----- level start window: level, difficulty, pre-level boosters (tap to select), Start -----

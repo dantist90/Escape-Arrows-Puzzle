@@ -168,6 +168,28 @@ try {
     check(`${w}x${h}: booster bar on screen, no overlaps`, bar.every((r) => r && inside(r, w, h)) && !overlap(bar[0], bar[1]) && !overlap(bar[1], bar[2]));
     await page.screenshot({ path: path.join(shots, `level12_${w}x${h}.png`) });
   }
+  // ----- level HUD, zoom slider, settings languages, buy window layout -----
+  await page.setViewport({ width: 390, height: 844 }); await page.evaluate(() => { window.dispatchEvent(new Event('resize')); AP.game.modal = null; QA.goto('level', { n: 100 }); }); await step(page, 0.3);
+  { const hits = await page.evaluate(() => QA.hits()), hh = hits.find((r) => r.id === 'hud_hearts');
+    check('level HUD: hearts centred in the top row, no back button', !!hh && Math.abs(hh.x + hh.w / 2 - 195) < 3 && hh.y < 80 && !hits.some((r) => r.id === 'bar_back'), JSON.stringify(hh));
+    const sl = hits.find((r) => r.id === 'zoom_slider');
+    check('big level: zoom slider on the left', !!sl && sl.x < 60, JSON.stringify(sl));
+    if (sl) { const z0 = (await state(page)).board.zoom; const cx = sl.x + sl.w / 2;
+      await page.mouse.move(cx, sl.y + sl.h - 8); await page.mouse.down(); await step(page, 0.05);
+      await page.mouse.move(cx, sl.y + 10, { steps: 4 }); await step(page, 0.1); await page.mouse.up(); await step(page, 0.05);
+      const z1 = (await state(page)).board.zoom; check('dragging the slider up zooms in', z1 > z0 * 1.5, `${z0.toFixed(2)} -> ${z1.toFixed(2)}`);
+      await page.screenshot({ path: path.join(shots, 'level100_slider_390x844.png') }); } }
+  await page.evaluate(() => QA.tap('bar_gear')); await step(page, 0.1);
+  { const hits = await page.evaluate(() => QA.hits());
+    check('settings in a level: language strip + Exit to lobby', hits.filter((r) => /^lang_/.test(r.id)).length >= 3 && hits.some((r) => r.id === 'set_exit'));
+    await page.screenshot({ path: path.join(shots, 'settings_level_390x844.png') });
+    await page.evaluate(() => QA.tap('lang_de')); await step(page, 0.1);
+    check('tap a language chip switches the language', (await state(page)).lang === 'de');
+    await page.evaluate(() => { AP.lang = 'ru'; AP.game.modal = { type: 'buy', id: 'shield' }; }); await step(page, 0.1); }
+  { const hits = await page.evaluate(() => QA.hits()), ad = hits.find((r) => r.id === 'buy_ad'), co = hits.find((r) => r.id === 'buy_coins');
+    check('buy window: rewarded on the left, coins on the right, one row', !!ad && !!co && ad.x < co.x && Math.abs(ad.y - co.y) < 2 && !overlap(ad, co));
+    await page.screenshot({ path: path.join(shots, 'buy_new_390x844.png') });
+    await page.evaluate(() => { AP.game.modal = null; QA.goto('lobby'); }); await step(page, 0.2); }
   // ----- stage 5: tournament (free ticket on unlock, 5 levels vs 19 AI, results, Roadmap) -----
   await page.setViewport({ width: 390, height: 844 });
   await page.evaluate(() => { AP.game.modal = null; AP.save.level = 8; AP.save.tickets = 0; AP.save.arrows = 0; AP.save.roadmap = 0; AP.save.seen.coach_tour = 0; AP.save.seen.tour_gift = 0; QA.goto('lobby'); }); await step(page, 0.6);

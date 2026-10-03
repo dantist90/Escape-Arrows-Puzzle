@@ -52,11 +52,16 @@
           // grow the body backwards from the head: a random walk through free cells, never onto its own ray
           const body = [[hx, hy], [px, py]]; const used = new Set([ci, py * w + px]); let back = [-d[0], -d[1]];
           const L = p.minLen + Math.floor(R() * (p.maxLen - p.minLen + 1));
+          // wiggle: after at most maxRun straight steps the walk turns; turns keep the same rotation (U-loops, p.uturn)
+          // or alternate it (zigzags), so bodies look like snakes and labyrinth corridors rather than L-shapes
+          let run = 0, rot = R() < 0.5 ? 1 : -1;
           while (body.length < L) { const c = body[body.length - 1];
-            const opts = DIRS.filter(q => !(q[0] === -back[0] && q[1] === -back[1])).map(q => [q[0], q[1]]);
-            opts.sort((a, b) => ((a[0] === back[0] && a[1] === back[1]) ? -1 : 0) - ((b[0] === back[0] && b[1] === back[1]) ? -1 : 0));
-            const order = R() < p.turn ? shuffle(opts) : opts; let moved = false;
+            const cw = [-back[1], back[0]], ccw = [back[1], -back[0]], straight = [back[0], back[1]];
+            const nextRot = R() < (p.uturn ?? 0.5) ? rot : -rot; const turns = nextRot > 0 ? [cw, ccw] : [ccw, cw];
+            const wantTurn = run >= (p.maxRun ?? 3) || R() < p.turn;
+            const order = wantTurn ? [...turns, straight] : [straight, ...turns]; let moved = false;
             for (const q of order) { const nx = c[0] + q[0], ny = c[1] + q[1]; if (!free(nx, ny) || used.has(ny * w + nx) || onRay(hx, hy, d, nx, ny)) continue;
+              const turned = q[0] !== back[0] || q[1] !== back[1]; if (turned) { run = 0; rot = (q[0] === cw[0] && q[1] === cw[1]) ? 1 : -1; } else run++;
               body.push([nx, ny]); used.add(ny * w + nx); back = q; moved = true; break; }
             if (!moved) break; }
           if (body.length < 2) continue;
@@ -78,7 +83,9 @@
     while (left) { const occ = B.occupancy(m, alive); const fr = m.arrows.filter(a => alive[a.id] && B.ray(m, occ, a).free); if (free0 < 0) free0 = fr.length; if (!fr.length) return { stuck: true };
       fr.forEach(a => { alive[a.id] = false; left--; }); layers++; }
     const len = m.arrows.reduce((s, a) => s + a.cells.length, 0) / Math.max(1, m.arrows.length);
-    return { arrows: m.arrows.length, layers, free0, len: Math.round(len * 10) / 10 };
+    // bends per arrow (how wiggly the level looks)
+    const bends = m.arrows.reduce((s, a) => { let b = 0; for (let i = 2; i < a.cells.length; i++) { const p = a.cells[i - 2], q = a.cells[i - 1], r = a.cells[i]; if ((q[0] - p[0]) !== (r[0] - q[0]) || (q[1] - p[1]) !== (r[1] - q[1])) b++; } return s + b; }, 0) / Math.max(1, m.arrows.length);
+    return { arrows: m.arrows.length, layers, free0, len: Math.round(len * 10) / 10, bends: Math.round(bends * 10) / 10 };
   }
 
   // ----- difficulty curve (see docs/GDD.md): 1-10 easy, then every 10th super hard, every 5th hard, the rest normal -----
@@ -87,18 +94,19 @@
   function params(n) {
     const diff = diffOf(n); const t = Math.min(1, Math.max(0, (n - 10) / 90)); // 0 at level 10 -> 1 at level 100
     const R = rng(n * 7919 + 13); const ri = (a, b) => a + Math.floor(R() * (b - a + 1));
-    if (diff === 'easy') { const w = 4 + Math.floor((n - 3) / 3); return { diff, w, h: w + ri(1, 3), shape: 'rect', minLen: 2, maxLen: 3 + Math.floor(n / 3), turn: 0.3 }; }
-    if (diff === 'normal') { const w = 7 + Math.round(4 * t) + ri(0, 1); return { diff, w, h: w + ri(2, 4), shape: n % 3 === 0 ? SHAPE_ROT[(n / 3 | 0) % SHAPE_ROT.length] : 'rect', minLen: 3, maxLen: 7 + Math.round(5 * t), turn: 0.4 }; }
-    if (diff === 'hard') { const w = 10 + Math.round(4 * t) + ri(0, 1); return { diff, w, h: w + ri(2, 4), shape: SHAPE_ROT[(n / 5 | 0) % SHAPE_ROT.length], minLen: 4, maxLen: 10 + Math.round(6 * t), turn: 0.45 }; }
-    const w = 13 + Math.round(5 * t) + ri(0, 1); return { diff, w, h: w + ri(3, 5), shape: SHAPE_ROT[(n / 10 | 0) % SHAPE_ROT.length], minLen: 4, maxLen: 14 + Math.round(8 * t), turn: 0.5 };
+    if (diff === 'easy') { const w = 4 + Math.floor((n - 3) / 3); return { diff, w, h: w + ri(1, 3), shape: 'rect', minLen: 3, maxLen: 4 + Math.floor(n / 2), turn: 0.45, maxRun: 2, uturn: 0.6 }; }
+    if (diff === 'normal') { const w = 7 + Math.round(4 * t) + ri(0, 1); return { diff, w, h: w + ri(2, 4), shape: n % 3 === 0 ? SHAPE_ROT[(n / 3 | 0) % SHAPE_ROT.length] : 'rect', minLen: 4, maxLen: 10 + Math.round(6 * t), turn: 0.55, maxRun: 2, uturn: 0.6 }; }
+    if (diff === 'hard') { const w = 10 + Math.round(4 * t) + ri(0, 1); return { diff, w, h: w + ri(2, 4), shape: SHAPE_ROT[(n / 5 | 0) % SHAPE_ROT.length], minLen: 5, maxLen: 13 + Math.round(8 * t), turn: 0.6, maxRun: 2, uturn: 0.65 }; }
+    const w = 13 + Math.round(5 * t) + ri(0, 1); return { diff, w, h: w + ri(3, 5), shape: SHAPE_ROT[(n / 10 | 0) % SHAPE_ROT.length], minLen: 6, maxLen: 18 + Math.round(10 * t), turn: 0.65, maxRun: 2, uturn: 0.65 };
   }
-  // best of a few seeds: good fill, and a chain depth that suits the difficulty
-  function level(n, tries = 6) {
+  // best of a few seeds: good fill, a chain depth that suits the difficulty, wiggly arrows, few arrows free at the start
+  function level(n, tries = 8) {
     const p = params(n); let best = null, bestScore = -1e9;
     for (let k = 0; k < tries; k++) {
       const lv = make(p, n * 1000 + k); const st = stats(lv); if (st.stuck || st.arrows < 2) continue;
       const wantDepth = { easy: 3, normal: 6, hard: 9, superhard: 12 }[p.diff];
-      const score = lv.fill * 10 - Math.abs(st.layers - wantDepth) * (p.diff === 'easy' ? 1 : 0.6) - (p.diff === 'easy' ? Math.max(0, st.free0 - 3) * 0.5 : 0);
+      const freeShare = st.free0 / st.arrows;
+      const score = lv.fill * 10 - Math.abs(st.layers - wantDepth) * (p.diff === 'easy' ? 1 : 0.6) + st.bends * 1.5 - (p.diff === 'easy' ? Math.max(0, st.free0 - 3) * 0.5 : freeShare * 12);
       if (score > bestScore) { bestScore = score; best = { ...lv, diff: p.diff }; }
     }
     if (best) delete best.fill;

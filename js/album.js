@@ -21,7 +21,7 @@
     if (thumbs[n]) return thumbs[n]; const lv = AP.levelData(n); if (!lv) return null;
     const S = 160, cv = document.createElement('canvas'); cv.width = S; cv.height = S; const c = cv.getContext('2d');
     const m = AP.board.build(lv), cell = Math.min((S - 16) / m.w, (S - 16) / m.h), ox = (S - m.w * cell) / 2, oy = (S - m.h * cell) / 2;
-    m.arrows.forEach(a => { const col = AP.board.colorAt(a.cells[a.cells.length - 1][1] / Math.max(1, m.h - 1));
+    const cols = AP.board.colorize(m); m.arrows.forEach(a => { const col = cols[a.id];
       c.strokeStyle = col; c.lineWidth = Math.max(1.5, cell * 0.32); c.lineCap = 'round'; c.lineJoin = 'round'; c.beginPath();
       a.cells.forEach((p, i) => { const X = ox + (p[0] + 0.5) * cell, Y = oy + (p[1] + 0.5) * cell; i ? c.lineTo(X, Y) : c.moveTo(X, Y); }); c.stroke(); });
     return (thumbs[n] = cv);

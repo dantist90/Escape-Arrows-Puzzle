@@ -6,10 +6,11 @@ const ART = AP.art = {};
   // palette
   ART.BG_TOP = '#2a0b6e'; ART.BG_BOT = '#4a1bb0'; ART.INK = '#ffffff'; ART.INK_DIM = '#c9b8ff';
   ART.PANEL = '#24105e'; ART.PANEL_EDGE = '#8f6bff';
-  ART.PINK = '#ff4fb8'; ART.YELLOW = '#ffc93a'; ART.VIOLET = '#9d5cff'; ART.CYAN = '#3fd8ff'; ART.GREEN = '#46e08a'; ART.RED = '#ff4d6d';
+  ART.PINK = '#ff4fb8'; ART.BUY = '#3f7bff'; /* buttons that cost coins: a gold coin on blue reads well */ ART.YELLOW = '#ffc93a'; ART.VIOLET = '#9d5cff'; ART.CYAN = '#3fd8ff'; ART.GREEN = '#46e08a'; ART.RED = '#ff4d6d';
   ART.NUM = '#4a1bb0';
   // the default arrow palette (stage 1 skins swap it): tail -> head
   ART.TUBE = ['#ffb020', '#ff4fb8', '#a24bff'];
+  ART.ARROWS = ['#ffb020', '#ff5ccf', '#a64dff', '#5cc8ff', '#4b6bff', '#46e08a']; // solid arrow colours (skins.js sets both)
 
   ART.candy = c => c; // buttons take a base color as is (kept for the Candle-style widget API)
 
@@ -92,9 +93,12 @@ const ART = AP.art = {};
     if (AP.assets.draw(ctx, 'ui/cur_' + type, x, y, r * 2.2, r * 2.2)) return;
     ctx.save();
     if (type === 'coins') {
-      ctx.fillStyle = '#c98410'; ctx.beginPath(); ctx.arc(x, y + r * 0.12, r, 0, Math.PI * 2); ctx.fill();
-      const g = ctx.createLinearGradient(0, y - r, 0, y + r); g.addColorStop(0, '#ffe680'); g.addColorStop(1, '#ffb21e'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#fff3b8'; ctx.lineWidth = r * 0.14; ctx.beginPath(); ctx.arc(x, y, r * 0.66, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#a8620a'; ctx.beginPath(); ctx.arc(x, y + r * 0.16, r, 0, Math.PI * 2); ctx.fill(); // coin edge
+      const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r); g.addColorStop(0, '#fff3a6'); g.addColorStop(0.55, '#ffc928'); g.addColorStop(1, '#e8960f');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#c47a0c'; ctx.lineWidth = Math.max(1, r * 0.12); ctx.beginPath(); ctx.arc(x, y, r * 0.74, 0, Math.PI * 2); ctx.stroke(); // inner rim
+      U.star(ctx, x, y + r * 0.04, r * 0.46, 5, 0.48); ctx.fillStyle = '#d98a0e'; ctx.fill(); U.star(ctx, x, y - r * 0.02, r * 0.44, 5, 0.48); ctx.fillStyle = '#ffe36a'; ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = Math.max(1, r * 0.12); ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(x, y, r * 0.86, Math.PI * 1.1, Math.PI * 1.45); ctx.stroke(); // shine
     } else if (type === 'tickets') {
       ctx.translate(x, y); ctx.rotate(-0.25); const w = r * 2, h = r * 1.3;
       ctx.fillStyle = '#ff4fb8'; U.rr(ctx, -w / 2, -h / 2, w, h, r * 0.25); ctx.fill();

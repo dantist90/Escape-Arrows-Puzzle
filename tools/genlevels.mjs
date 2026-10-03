@@ -40,7 +40,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   levels.forEach((lv, i) => {
     const errs = AP.board.validate(lv), order = AP.board.solve(lv), st = AP.gen.stats(lv);
     if (errs.length || !order) { bad++; console.error(`FAIL  L${i + 1}: ${errs.join(', ') || 'stuck'}`); }
-    rows.push(`L${String(i + 1).padStart(3)}  ${lv.diff.padEnd(9)} ${String(lv.w + 'x' + lv.h).padEnd(6)} ${(lv.shape || 'rect').padEnd(9)} arrows ${String(st.arrows).padStart(3)}  depth ${String(st.layers).padStart(2)}  free@start ${String(st.free0).padStart(2)}  avg len ${st.len}`);
+    rows.push(`L${String(i + 1).padStart(3)}  ${lv.diff.padEnd(9)} ${String(lv.w + 'x' + lv.h).padEnd(6)} ${(lv.shape || 'rect').padEnd(9)} arrows ${String(st.arrows).padStart(3)}  depth ${String(st.layers).padStart(2)}  free@start ${String(st.free0).padStart(2)}  avg len ${String(st.len).padStart(4)}  bends ${st.bends}`);
   });
   console.log(rows.join('\n'));
   console.log(`\n${levels.length} levels in ${Date.now() - t0} ms${bad ? `, ${bad} BAD` : ', all valid and solvable'}`);

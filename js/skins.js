@@ -4,9 +4,12 @@
 // Events: cosmetic/<id>/unlocked (bought or won), cosmetic/<id>/equip.
 (function () {
   const U = AP.util;
+  // 6 arrow colours per palette (AP.art.ARROWS); the first three are also the UI gradient (AP.art.TUBE)
   const PAL = {
-    neon: ['#ffb020', '#ff4fb8', '#a24bff'], candy: ['#ff9ad5', '#ffd1f0', '#b38bff'], ocean: ['#3fd8ff', '#3f8bff', '#7a5cff'],
-    mint: ['#b6ff6b', '#46e08a', '#2fc6c0'], sunset: ['#ffe066', '#ff8a3d', '#ff3d6d'], galaxy: ['#ffffff', '#9d5cff', '#3fd8ff'], gold: ['#fff2a0', '#ffc93a', '#ff9a1e'],
+    neon: ['#ffb020', '#ff5ccf', '#a64dff', '#5cc8ff', '#4b6bff', '#46e08a'], candy: ['#ff9ad5', '#ffd1f0', '#b38bff', '#ff6fb5', '#9fe7ff', '#ffe08a'],
+    ocean: ['#3fd8ff', '#3f8bff', '#7a5cff', '#2fe0c8', '#5ab8ff', '#b0f0ff'], mint: ['#b6ff6b', '#46e08a', '#2fc6c0', '#e8ff7a', '#5fe0a8', '#8af0ff'],
+    sunset: ['#ffe066', '#ff8a3d', '#ff3d6d', '#ffb04d', '#ff6fa8', '#c94dff'], galaxy: ['#ffffff', '#9d5cff', '#3fd8ff', '#ff6fe0', '#6b7bff', '#c8b8ff'],
+    gold: ['#fff2a0', '#ffc93a', '#ff9a1e', '#ffe066', '#ffb84d', '#fff8d0'],
   };
   const BGS = { violet: ['#2a0b6e', '#4a1bb0'], midnight: ['#070a2a', '#1a2a6e'], rose: ['#4a0b3e', '#a01b6e'], aurora: ['#062a3a', '#1b6e6a'], sunset: ['#3a0b2a', '#b04a1b'] };
   AP.addStrings({
@@ -32,7 +35,7 @@
 
   const SK = AP.skins = {
     PAL, BGS,
-    apply() { AP.art.TUBE = PAL[AP.save.skin] || PAL.neon; const b = BGS[AP.save.bg] || BGS.violet; AP.art.BG_TOP = b[0]; AP.art.BG_BOT = b[1]; },
+    apply() { const p = PAL[AP.save.skin] || PAL.neon; AP.art.ARROWS = p; AP.art.TUBE = p.slice(0, 3); const b = BGS[AP.save.bg] || BGS.violet; AP.art.BG_TOP = b[0]; AP.art.BG_BOT = b[1]; },
     price(kind, id) { return (kind === 'arrows' ? AP.CONFIG.skins : AP.CONFIG.backgrounds)[id]; },
     // tap on a cell: equip if owned, buy if it has a price, else say where it comes from
     pick(kind, id) {
@@ -69,7 +72,7 @@
       ctx.restore();
       U.text(ctx, AP.t((kind === 'arrows' ? 'sk_' : 'bg_') + id), x + sz / 2, py + ph + 18 * s, { size: 15 * s, color: '#fff', weight: 900, maxW: sz - 16 * s });
       const bh = Math.min(36 * s, hh - ph - 46 * s), by = y + hh - bh - 10 * s, label = on ? AP.t('equipped') : own ? AP.t('equip') : price === null || price === undefined ? AP.t('roadmap_only') : String(price);
-      AP.ui.button('sk_' + id, x + 10 * s, by, sz - 20 * s, bh, label, { color: on ? AP.art.GREEN : own ? AP.art.VIOLET : AP.art.YELLOW, size: 14 * s, disabled: on,
+      AP.ui.button('sk_' + id, x + 10 * s, by, sz - 20 * s, bh, label, { color: on ? AP.art.GREEN : own ? AP.art.VIOLET : price ? AP.art.BUY : AP.art.YELLOW, size: 14 * s, disabled: on,
         icon: !own && price ? (cc, ix, iy) => AP.art.currency(cc, 'coins', ix, iy, 9 * s) : null, onClick: () => SK.pick(kind, id) });
     },
   };

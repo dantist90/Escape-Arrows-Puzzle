@@ -54,12 +54,22 @@
       const m = B.build(level);
       const st = { m, alive: m.arrows.map(() => true), left: m.arrows.length, view: null, shake: 0, sparkT: 0 };
       st.arrows = m.arrows.map(a => ({ ...a, state: 'idle', p: 0, t: 0, flash: 0, glow: 0, alpha: 1 }));
-      st.arrows.forEach(a => { const ty = a.cells[0][1] / Math.max(1, m.h - 1), hy = a.cells[a.cells.length - 1][1] / Math.max(1, m.h - 1); a.col0 = B.colorAt(ty * 0.85); a.col1 = B.colorAt(Math.min(1, hy * 0.85 + 0.15)); });
+      B.colorize(m).forEach((c, i) => { st.arrows[i].col = st.arrows[i].col0 = st.arrows[i].col1 = c; });
       st.occ = B.occupancy(m, st.alive);
       st.mask = level.shape && AP.gen ? AP.gen.maskOf(m.w, m.h, level.shape) : null; // silhouette: dots only inside it
       B.cur = st; return st;
     },
-    // board-wide color ramp (top -> bottom) from the current skin
+    // one solid colour per arrow from the skin palette (AP.art.ARROWS); arrows that touch get different colours.
+    // Deterministic per level (seeded by its size and arrow count), so a replay looks the same.
+    colorize(m) {
+      const P = AP.art.ARROWS, R = AP.gen ? AP.gen.rng(m.w * 131 + m.h * 7 + m.arrows.length) : Math.random, owner = new Int32Array(m.w * m.h).fill(-1), cols = [];
+      m.arrows.forEach(a => a.cells.forEach(c => { owner[c[1] * m.w + c[0]] = a.id; }));
+      m.arrows.forEach(a => { const near = new Set();
+        a.cells.forEach(c => [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(d => { const x = c[0] + d[0], y = c[1] + d[1]; if (x < 0 || y < 0 || x >= m.w || y >= m.h) return; const o = owner[y * m.w + x]; if (o >= 0 && o !== a.id && cols[o]) near.add(cols[o]); }));
+        const ok = P.filter(c => !near.has(c)); const pool = ok.length ? ok : P; cols[a.id] = pool[Math.floor(R() * pool.length)]; });
+      return cols;
+    },
+    // board-wide color ramp (top -> bottom) from the current skin (UI bits; arrows use colorize)
     colorAt(t) { const C = AP.art.TUBE; const k = U.clamp(t, 0, 1) * (C.length - 1); const i = Math.min(C.length - 2, Math.floor(k)); return U.mix(C[i], C[i + 1], k - i); },
     freeIds() { const st = B.cur; if (!st) return []; return st.arrows.filter(a => a.state === 'idle' && st.alive[a.id] && B.ray(st.m, st.occ, a).free).map(a => a.id); },
     busy() { const st = B.cur; return !!st && st.arrows.some(a => a.state === 'fly' || a.state === 'bump' || a.state === 'pop'); },
@@ -160,22 +170,25 @@
       for (const a of st.arrows) if (a.state === 'pop') { ctx.save(); ctx.globalAlpha = Math.max(0, 1 - a.t / 0.35); a.glow = 1; B.drawArrow(ctx, a, v); ctx.restore(); }
       ctx.restore();
     },
+    // crisp candy tube: a darker rim / drop shadow under the body, a light shine on top, rounded corners, solid colour
     drawArrow(ctx, a, v) {
       const g = B.bodyPts(a); const pts = g.map(p => [v.ox + (p[0] + 0.5) * v.c, v.oy + (p[1] + 0.5) * v.c]); if (pts.length < 2) return;
-      const W = Math.max(2.2, v.c * 0.3); const red = a.flash > 0 ? Math.min(1, a.flash * 1.4) : 0;
-      const c0 = red ? U.mix(a.col0, '#ff2d55', red) : a.col0, c1 = red ? U.mix(a.col1, '#ff2d55', red) : a.col1;
-      const A = pts[0], Z = pts[pts.length - 1]; const grad = ctx.createLinearGradient(A[0], A[1], Z[0], Z[1]); grad.addColorStop(0, c0); grad.addColorStop(1, c1);
-      const line = () => { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); };
+      const W = Math.max(2.4, v.c * 0.34), red = a.flash > 0 ? Math.min(1, a.flash * 1.4) : 0, col = red ? U.mix(a.col, '#ff2d55', red) : a.col;
+      const rad = v.c * 0.45, dy = Math.max(1, W * 0.16);
+      // path with rounded corners (arcTo), so bends read as smooth snake curves
+      const line = (ox, oy) => { ctx.beginPath(); ctx.moveTo(pts[0][0] + ox, pts[0][1] + oy);
+        for (let i = 1; i < pts.length - 1; i++) { const p = pts[i], q = pts[i + 1], o = pts[i - 1]; const r = Math.min(rad, Math.hypot(p[0] - o[0], p[1] - o[1]) / 2, Math.hypot(q[0] - p[0], q[1] - p[1]) / 2);
+          ctx.arcTo(p[0] + ox, p[1] + oy, q[0] + ox, q[1] + oy, Math.max(0.1, r)); }
+        const Z = pts[pts.length - 1]; ctx.lineTo(Z[0] + ox, Z[1] + oy); };
+      // head geometry: direction of the last segment; the body stops at the head's base
+      const Z = pts[pts.length - 1], P = pts[pts.length - 2], ang = Math.atan2(Z[1] - P[1], Z[0] - P[0]), L = Math.max(6, v.c * 0.5), hw = Math.max(5, W * 1.15);
+      const head = (ox, oy) => { ctx.save(); ctx.translate(Z[0] + ox, Z[1] + oy); ctx.rotate(ang); ctx.beginPath(); ctx.moveTo(L * 0.55, 0); ctx.lineTo(-L * 0.45, -hw); ctx.quadraticCurveTo(-L * 0.6, 0, -L * 0.45, hw); ctx.closePath(); ctx.restore(); };
       ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      // glow without shadowBlur (cheap for hundreds of arrows): a wide faint stroke under the tube
-      ctx.globalAlpha = 0.15 + a.glow * 0.4; ctx.strokeStyle = grad; ctx.lineWidth = W * (2.0 + a.glow * 1.5); line(); ctx.stroke();
-      ctx.globalAlpha = 1; ctx.lineWidth = W; line(); ctx.stroke();
-      ctx.strokeStyle = 'rgba(255,255,255,0.42)'; ctx.lineWidth = W * 0.3; line(); ctx.stroke();
-      // head: direction of the last body segment
-      const P = pts[pts.length - 2]; const ang = Math.atan2(Z[1] - P[1], Z[0] - P[0]); const L = Math.max(5, v.c * 0.42);
-      ctx.translate(Z[0], Z[1]); ctx.rotate(ang); ctx.fillStyle = c1;
-      ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.arc(L * 0.2, 0, L * 0.9, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
-      ctx.beginPath(); ctx.moveTo(L * 0.85, 0); ctx.lineTo(-L * 0.35, -L * 0.62); ctx.lineTo(-L * 0.12, 0); ctx.lineTo(-L * 0.35, L * 0.62); ctx.closePath(); ctx.fill();
+      if (a.glow > 0) { ctx.strokeStyle = U.rgba('#ffffff', Math.min(0.9, a.glow)); ctx.lineWidth = W + 7; line(0, 0); ctx.stroke(); }
+      const dark = U.darken(col, 0.38);
+      ctx.strokeStyle = dark; ctx.lineWidth = W; line(0, dy); ctx.stroke(); ctx.fillStyle = dark; head(0, dy); ctx.fill();
+      ctx.strokeStyle = col; ctx.lineWidth = W; line(0, 0); ctx.stroke(); ctx.fillStyle = col; head(0, 0); ctx.fill();
+      ctx.strokeStyle = U.rgba(U.lighten(col, 0.6), 0.75); ctx.lineWidth = Math.max(1, W * 0.26); line(-W * 0.12, -W * 0.18); ctx.stroke();
       ctx.restore();
     },
   };

@@ -94,17 +94,20 @@
 
     // ----- drawing -----
     rects() {
-      const L = AP.ui.layout, s = L.s; const hudH = 44 * s; const st = L.stage;
-      if (L.portrait) return { hud: { x: st.x, y: st.y, w: st.w, h: hudH }, board: { x: st.x + 6 * s, y: st.y + hudH, w: st.w - 12 * s, h: Math.max(40, L.foot.y - st.y - hudH) }, foot: L.foot };
-      // landscape: boosters in a column on the right, the board takes the whole height under the HUD
-      const col = 84 * s, bottom = L.h - L.safe.b - 8 * s;
-      return { hud: { x: st.x, y: st.y, w: st.w, h: hudH }, board: { x: st.x + 56 * s, y: st.y + hudH, w: st.w - 56 * s - col, h: Math.max(40, bottom - st.y - hudH) },
-        side: { x: st.x + st.w - col, y: st.y + hudH, w: col, h: Math.max(40, bottom - st.y - hudH) } };
+      const L = AP.ui.layout, s = L.s, st = L.stage, hd = L.head; const hud = { x: hd.x, y: hd.top, w: hd.w, h: hd.h - hd.top };
+      // a big board gets room on the left for the zoom slider (it needs zoom when cells would be small)
+      const d = S.data || { w: 1, h: 1 }, roomy = (bw, bh) => Math.min((bw - 28 * s) / d.w, (bh - 28 * s) / d.h) < 46 * s;
+      if (L.portrait) { const bh = Math.max(40, L.foot.y - st.y - 4 * s), zl = roomy(st.w - 12 * s, bh) ? 44 * s : 0;
+        return { hud, board: { x: st.x + 6 * s + zl, y: st.y + 4 * s, w: st.w - 12 * s - zl, h: bh }, foot: L.foot }; }
+      // landscape: boosters in a column on the right, the zoom slider on the left, the board takes the whole height
+      const col = 84 * s, bottom = L.h - L.safe.b - 8 * s, bh = Math.max(40, bottom - st.y - 4 * s);
+      return { hud, board: { x: st.x + 56 * s, y: st.y + 4 * s, w: st.w - 56 * s - col, h: bh }, side: { x: st.x + st.w - col, y: st.y + 4 * s, w: col, h: bh } };
     },
     draw(ctx, w, h) {
       const L = AP.ui.layout, s = L.s; AP.art.background(ctx, w, h, AP.game.t);
       const R = S.rects(); if (B().cur) { B().fit(R.board); B().draw(ctx); }
-      AP.game.topBar(ctx, { pills: ['coins'], /* no back button in a level: leaving is in the settings window (Menu) */ title: S.tour ? AP.t('tour_title') + ' ' + (S.k + 1) + '/' + AP.CONFIG.tournament.levels : AP.t('level_n', { n: S.n }) });
+      // a clean top: coins + gear (Exit to lobby is inside it) and the hearts in the centre — no level number, % or difficulty
+      AP.game.topBar(ctx, { pills: ['coins'], reserve: (S.maxHearts * 37 + 30) * s / 2 });
       S.drawHud(ctx, R.hud, s);
       if (B().cur && B().zoomable()) S.drawZoom(ctx, R.board, s);
       S.drawBoosters(ctx, R.foot || R.side, s, !R.foot);
@@ -124,32 +127,29 @@
         if (BO.count(id) <= 0) { AP.audio.click(); AP.game.modal = { type: 'buy', id }; return; } act[id](); }, { lvl: S.n, active: (id === 'shield' && S.shield) || (id === 'wand' && S.wand) }));
     },
     drawHud(ctx, r, s) {
-      const st = B().cur; const cy = r.y + r.h / 2;
-      // difficulty chip (left), hearts (centre), progress (right)
-      const dcol = { easy: AP.art.GREEN, normal: AP.art.CYAN, hard: AP.art.PINK, superhard: AP.art.RED }[S.diff];
-      const label = AP.t('diff_' + S.diff); const dw = Math.min(r.w * 0.3, 120 * s), dh = 26 * s, dx = r.x + 12 * s;
-      ctx.fillStyle = U.rgba(dcol, 0.25); U.rr(ctx, dx, cy - dh / 2, dw, dh, dh / 2); ctx.fill(); ctx.strokeStyle = dcol; ctx.lineWidth = 1.5 * s; ctx.stroke();
-      U.text(ctx, label, dx + dw / 2, cy + 0.5, { size: 13 * s, color: '#fff', weight: 900, maxW: dw - 12 * s });
-      const hr = 13 * s, gap = 6 * s, n = S.maxHearts, hx0 = r.x + r.w / 2 - (n * hr * 2 + (n - 1) * gap) / 2 + hr;
-      AP.ui.hit('hud_hearts', { x: hx0 - hr * 1.2, y: cy - hr * 1.2, w: n * (hr * 2 + gap) + hr * 0.4, h: hr * 2.4 }); // coach target
+      const cy = r.y + r.h / 2, hr = 15 * s, gap = 7 * s, n = S.maxHearts, hx0 = r.x + r.w / 2 - (n * hr * 2 + (n - 1) * gap) / 2 + hr;
+      const tw = n * hr * 2 + (n - 1) * gap; AP.ui.hit('hud_hearts', { x: r.x + r.w / 2 - tw / 2 - 4 * s, y: cy - hr * 1.2, w: tw + 8 * s, h: hr * 2.4 }); // coach target
       for (let i = 0; i < n; i++) { const full = i < S.hearts; let k = 1;
         if (!full && i === S.hearts && S.heartPop >= 0) k = 1 + Math.sin(Math.min(1, S.heartPop / 0.3) * Math.PI) * 0.5;
         ctx.save(); ctx.translate(hx0 + i * (hr * 2 + gap), cy); ctx.scale(k, k); U.heart(ctx, 0, -hr * 0.85, hr * 2);
         ctx.fillStyle = full ? '#ff4d6d' : 'rgba(255,255,255,0.18)'; if (full) { ctx.shadowColor = '#ff4d6d'; ctx.shadowBlur = 8 * s; } ctx.fill(); ctx.restore(); }
       if (S.shield) AP.art.icon(ctx, 'shield', hx0 + n * (hr * 2 + gap) - hr * 0.2, cy, hr * 0.9);
-      if (!st) return; const total = st.arrows.length, pct = Math.round((total - st.left) / total * 100);
-      const pw = Math.min(r.w * 0.28, 120 * s), ph = 10 * s, px = r.x + r.w - 12 * s - pw;
-      ctx.fillStyle = 'rgba(10,2,40,0.6)'; U.rr(ctx, px, cy - ph / 2, pw, ph, ph / 2); ctx.fill();
-      if (pct > 0) { const g = ctx.createLinearGradient(px, 0, px + pw, 0); AP.art.TUBE.forEach((c, i) => g.addColorStop(i / 2, c)); ctx.fillStyle = g; U.rr(ctx, px, cy - ph / 2, Math.max(ph, pw * pct / 100), ph, ph / 2); ctx.fill(); }
-      U.text(ctx, pct + '%', px + pw / 2, cy - ph - 4 * s, { size: 11 * s, color: AP.art.INK_DIM, weight: 800 });
     },
     drawZoom(ctx, r, s) {
-      const bs = 40 * s, x = AP.ui.layout.portrait ? r.x + 4 * s : r.x - 50 * s, y = r.y + r.h / 2 - bs - 5 * s; const v = B().cur.view;
-      const plus = (c, cx, cy, rr) => { c.strokeStyle = '#fff'; c.lineWidth = rr * 0.3; c.lineCap = 'round'; c.beginPath(); c.moveTo(cx - rr, cy); c.lineTo(cx + rr, cy); c.moveTo(cx, cy - rr); c.lineTo(cx, cy + rr); c.stroke(); };
-      const minus = (c, cx, cy, rr) => { c.strokeStyle = '#fff'; c.lineWidth = rr * 0.3; c.lineCap = 'round'; c.beginPath(); c.moveTo(cx - rr, cy); c.lineTo(cx + rr, cy); c.stroke(); };
-      const mid = [r.x + r.w / 2, r.y + r.h / 2];
-      if (v.c < v.cMax - 0.5) AP.ui.iconButton('zoom_in', x, y, bs, plus, () => { AP.audio.click(); B().zoomAt(mid[0], mid[1], 1.5); });
-      if (v.c > v.cFit + 0.5) AP.ui.iconButton('zoom_out', x, y + bs + 10 * s, bs, minus, () => { AP.audio.click(); B().zoomAt(mid[0], mid[1], 1 / 1.5); });
+      const v = B().cur.view, x = r.x - 26 * s, th = Math.min(r.h * 0.55, 260 * s), y0 = r.y + r.h / 2 - th / 2, mid = [r.x + r.w / 2, r.y + r.h / 2];
+      const span = Math.log(v.cMax / v.cFit) || 1, kOf = c => U.clamp(Math.log(c / v.cFit) / span, 0, 1), cOf = k => v.cFit * Math.exp(k * span);
+      const id = 'zoom_slider', held = AP.ui.isHeld(id);
+      if (held) { const k = U.clamp((y0 + th - AP.ui.pointer.y) / th, 0, 1); B().zoomAt(mid[0], mid[1], cOf(k) / v.c); }
+      const k = kOf(v.c), ky = y0 + th - k * th;
+      ctx.fillStyle = 'rgba(10,2,40,0.6)'; U.rr(ctx, x - 5 * s, y0, 10 * s, th, 5 * s); ctx.fill();
+      ctx.fillStyle = U.rgba(AP.art.PINK, 0.85); U.rr(ctx, x - 5 * s, ky, 10 * s, y0 + th - ky, 5 * s); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, ky, (held ? 13 : 11) * s, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = AP.art.PINK; ctx.lineWidth = 3 * s; ctx.stroke();
+      const sign = (cy, plus) => { ctx.strokeStyle = '#fff'; ctx.lineWidth = 3 * s; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x - 7 * s, cy); ctx.lineTo(x + 7 * s, cy); if (plus) { ctx.moveTo(x, cy - 7 * s); ctx.lineTo(x, cy + 7 * s); } ctx.stroke(); };
+      sign(y0 - 20 * s, true); sign(y0 + th + 20 * s, false);
+      // the whole column is the slider (drag) ; taps on + / - step the zoom
+      AP.ui.hit(id, { x: x - 22 * s, y: y0 - 6 * s, w: 44 * s, h: th + 12 * s });
+      AP.ui.hit('zoom_in', { x: x - 20 * s, y: y0 - 40 * s, w: 40 * s, h: 34 * s }, { onClick: () => { AP.audio.click(); B().zoomAt(mid[0], mid[1], 1.5); } });
+      AP.ui.hit('zoom_out', { x: x - 20 * s, y: y0 + th + 6 * s, w: 40 * s, h: 34 * s }, { onClick: () => { AP.audio.click(); B().zoomAt(mid[0], mid[1], 1 / 1.5); } });
     },
   };
   const B = () => AP.board;
@@ -182,7 +182,7 @@
     U.heart(ctx, w / 2, y + 66 * s, 58 * s); ctx.fillStyle = 'rgba(255,77,109,0.35)'; ctx.fill();
     U.text(ctx, AP.t('out_hint'), w / 2, y + 140 * s, { size: 14 * s, color: AP.art.INK_DIM, weight: 800, maxW: pw - 30 * s });
     const bw = pw - 48 * s, bx = x + 24 * s; const revive = () => { S.hearts = 1; AP.game.modal = null; AP.audio.sparkle(); AP.poki.gameplayStart(); };
-    AP.ui.button('fail_coins', bx, y + 166 * s, bw, 52 * s, AP.t('cont') + '  ' + C.continueCoins, { color: AP.art.YELLOW, size: 19 * s, icon: (c, ix, iy) => AP.art.currency(c, 'coins', ix, iy, 11 * s), iconRight: true,
+    AP.ui.button('fail_coins', bx, y + 166 * s, bw, 52 * s, AP.t('cont') + '  ' + C.continueCoins, { color: AP.art.BUY, size: 19 * s, icon: (c, ix, iy) => AP.art.currency(c, 'coins', ix, iy, 11 * s), iconRight: true,
       onClick: () => { if (AP.meta.spend({ type: 'coins', n: C.continueCoins })) revive(); } });
     if (AP.CONFIG.ads.continueAd) { AP.poki.rewardedVisible('continue');
       AP.ui.button('fail_ad', bx, y + 228 * s, bw, 52 * s, AP.t('cont'), { color: AP.art.PINK, size: 19 * s, icon: (c, ix, iy) => AP.art.currency(c, 'ad', ix, iy, 12 * s), iconRight: true,
