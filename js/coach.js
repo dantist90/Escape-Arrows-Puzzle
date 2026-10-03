@@ -25,6 +25,9 @@
     { id: 'pk_key', done: 'tap', mood: 'wow', when: () => inLevel() && !!AP.pickups.rectOf('key'), target: () => AP.pickups.rectOf('key') },
     { id: 'pk_rotator', done: 'tap', mood: 'wow', when: () => inLevel() && !!AP.pickups.fieldRect('rot'), target: () => AP.pickups.fieldRect('rot') },
     { id: 'pk_portal', done: 'tap', mood: 'wow', when: () => inLevel() && !!AP.pickups.fieldRect('portal'), target: () => AP.pickups.fieldRect('portal') },
+    { id: 'pk_star', done: 'tap', mood: 'wow', when: () => inLevel() && !!AP.pickups.rectOf('star'), target: () => AP.pickups.rectOf('star') },
+    { id: 'ice', done: 'tap', mood: 'oops', when: () => inLevel() && !!AP.pickups.arrowRect('ice'), target: () => AP.pickups.arrowRect('ice') },
+    { id: 'twin', done: 'tap', mood: 'wow', when: () => inLevel() && !!AP.pickups.arrowRect('twin'), target: () => AP.pickups.arrowRect('twin') },
     { id: 'zoom', done: 'tap', mood: 'idle', when: () => inLevel() && AP.board.zoomable() && !!hitRect('zoom_in'), target: () => hitRect('zoom_in') },
   ];
 

@@ -45,9 +45,12 @@
       const m = st.m, alive = st.alive.slice(), locked = { ...(st.locked || {}) }, keys = (st.items || []).filter(i => i.kind === 'key' && !i.got).map(i => ({ ...i }));
       let left = alive.filter(Boolean).length;
       while (left) { const occ = B.occupancy(m, alive); let f = null, r = null;
-        for (const a of m.arrows) { if (!alive[a.id] || locked[a.id]) continue; const t = B.ray(m, occ, a); if (t.free) { f = a; r = t; break; } }
-        if (!f) return false; alive[f.id] = false; left--;
-        r.cells.forEach(c => keys.forEach(k => { if (!k.got && k.x === c[0] && k.y === c[1]) { k.got = true; locked[k.lock] = false; } })); }
+        const tw = st.twin || {}; let g = null, rg = null;
+        for (const a of m.arrows) { if (!alive[a.id] || locked[a.id]) continue; const t = B.ray(m, occ, a); if (!t.free) continue;
+          const p = tw[a.id]; if (p !== undefined && alive[p]) { if (locked[p]) continue; const tp = B.ray(m, occ, m.arrows[p]); if (!tp.free) continue; g = m.arrows[p]; rg = tp; }
+          f = a; r = t; break; }
+        if (!f) return false; alive[f.id] = false; left--; if (g) { alive[g.id] = false; left--; }
+        const grab = rr => rr.cells.forEach(c => keys.forEach(k => { if (!k.got && k.x === c[0] && k.y === c[1]) { k.got = true; locked[k.lock] = false; } })); grab(r); if (rg) grab(rg); }
       return true;
     },
     // greedy solver: removal order, or null if the level is stuck
@@ -89,7 +92,8 @@
     },
     // board-wide color ramp (top -> bottom) from the current skin (UI bits; arrows use colorize)
     colorAt(t) { const C = AP.art.TUBE; const k = U.clamp(t, 0, 1) * (C.length - 1); const i = Math.min(C.length - 2, Math.floor(k)); return U.mix(C[i], C[i + 1], k - i); },
-    freeIds() { const st = B.cur; if (!st) return []; return st.arrows.filter(a => a.state === 'idle' && st.alive[a.id] && !(st.locked && st.locked[a.id]) && B.ray(st.m, st.occ, a).free).map(a => a.id); },
+    freeIds() { const st = B.cur; if (!st) return []; const ok = a => a.state === 'idle' && st.alive[a.id] && !(st.locked && st.locked[a.id]) && B.ray(st.m, st.occ, a).free;
+      return st.arrows.filter(a => { if (!ok(a)) return false; const p = st.twin && st.twin[a.id]; return p === undefined || !st.alive[p] || (ok(st.arrows[p]) && !(st.ice && st.ice[p])); }).map(a => a.id); },
     busy() { const st = B.cur; return !!st && st.arrows.some(a => a.state === 'fly' || a.state === 'bump' || a.state === 'pop'); },
 
     // path the arrow travels: its own cells, the traced way out (r.cells), then extra cells straight on (off the board)
@@ -113,18 +117,24 @@
     },
     // ----- actions: returns 'fly' | 'bump' | null -----
     // pass: true = fire pickup, the arrow flies through everything in its way
-    // returns 'fly' | 'bump' | 'locked' | null. A locked arrow does not move until its key is collected.
+    dist(a, b) { let d = 1e9; a.cells.forEach(p => b.cells.forEach(q => { d = Math.min(d, Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1])); })); return d; },
+    // send an arrow out along its traced way r
+    fly(a, r) { const st = B.cur; st.alive[a.id] = false; st.left--; st.occ = B.occupancy(st.m, st.alive);
+      const v = st.view; const off = v ? Math.ceil(Math.hypot(v.sw, v.sh) / v.c) + 2 : 40;
+      a.path = B.makePath(a, r, a.cells.length + off); a.state = 'fly'; a.t = 0; a.p = 0; a.v = 9; a.seen = 0; a.end = a.path.length - a.cells.length; },
+    // returns 'fly' | 'bump' | 'locked' | 'melt' | 'twin' | null. A locked arrow does not move until its key is collected;
+    // a frozen one melts on the first tap; a twin flies only together with its partner.
     tapArrow(id, pass) {
       const st = B.cur; const a = st && st.arrows[id]; if (!a || a.state !== 'idle' || !st.alive[id]) return null;
       if (st.locked && st.locked[id]) { a.wob = 1; return 'locked'; }
+      if (st.ice && st.ice[id]) { st.ice[id] = false; a.melt = 1; return 'melt'; } // first tap: the ice breaks, nothing else happens
+      const p = st.twin && st.twin[id];
+      if (p !== undefined && st.alive[p]) { const b = st.arrows[p], ra = B.ray(st.m, st.occ, a), rb = B.ray(st.m, st.occ, b);
+        if (ra.free && rb.free && !(st.locked && st.locked[p]) && !(st.ice && st.ice[p]) && b.state === 'idle') { B.fly(a, ra); B.fly(b, rb); return 'fly'; }
+        a.wob = 1; b.wob = 1; return 'twin'; } // the pair waits until both ways are clear (no heart lost)
       let r = B.ray(st.m, st.occ, a);
       if (pass && !r.free) { const g = B.ray(st.m, st.occ, a, true); if (!g.loop) { r = g; a.fire = true; } }
-      if (r.free) {
-        st.alive[id] = false; st.left--; st.occ = B.occupancy(st.m, st.alive);
-        const v = st.view; const off = v ? Math.ceil(Math.hypot(v.sw, v.sh) / v.c) + 2 : 40;
-        a.path = B.makePath(a, r, a.cells.length + off); a.state = 'fly'; a.t = 0; a.p = 0; a.v = 9; a.seen = 0; a.end = a.path.length - a.cells.length;
-        return 'fly';
-      }
+      if (r.free) { B.fly(a, r); return 'fly'; }
       a.path = B.makePath(a, r, 2); a.state = 'bump'; a.t = 0; a.p = 0; a.reach = r.dist + 0.32; a.blocker = r.blocker; a.hit = false;
       return 'bump';
     },
@@ -132,7 +142,7 @@
     update(dt, ev = {}) {
       const st = B.cur; if (!st) return; st.shake = Math.max(0, st.shake - dt * 3);
       for (const a of st.arrows) {
-        a.flash = Math.max(0, a.flash - dt * 1.6); a.glow = Math.max(0, a.glow - dt); a.wob = Math.max(0, (a.wob || 0) - dt * 2.5);
+        a.flash = Math.max(0, a.flash - dt * 1.6); a.glow = Math.max(0, a.glow - dt); a.wob = Math.max(0, (a.wob || 0) - dt * 2.5); a.melt = Math.max(0, (a.melt || 0) - dt * 2);
         if (a.state === 'fly') { a.t += dt; a.v += dt * 70; a.p += a.v * dt;
           // cells the head has reached on its ray (past its own body): pickups there are collected (ev.onCell)
           const hi = Math.min(a.path.length - 1, Math.floor(a.p + a.cells.length - 1 + 0.5)); for (let i = Math.max(a.cells.length, a.seen || 0); i <= hi; i++) { const c = a.path[i]; if (ev.onCell && c[0] >= 0 && c[1] >= 0 && c[0] < st.m.w && c[1] < st.m.h) ev.onCell(a, c); } a.seen = hi + 1;

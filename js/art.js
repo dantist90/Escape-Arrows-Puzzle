@@ -118,6 +118,29 @@ const ART = AP.art = {};
     }
     ctx.restore();
   };
+  // small flag of a language, code-drawn (pt = Brazil: the game ships pt-BR; en = United Kingdom)
+  ART.flag = function (ctx, code, x, y, w, h) {
+    ctx.save(); U.rr(ctx, x, y, w, h, Math.min(w, h) * 0.18); ctx.clip();
+    const H = (cols) => cols.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(x, y + h * i / cols.length, w, h / cols.length + 0.5); });
+    const V = (cols) => cols.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(x + w * i / cols.length, y, w / cols.length + 0.5, h); });
+    switch (code) {
+      case 'ru': H(['#ffffff', '#1c57d0', '#e4202c']); break;
+      case 'de': H(['#1a1a1a', '#dd0000', '#ffce00']); break;
+      case 'pl': H(['#ffffff', '#dc143c']); break;
+      case 'fr': V(['#1f4fbf', '#ffffff', '#e8283c']); break;
+      case 'it': V(['#169b45', '#ffffff', '#d8263a']); break;
+      case 'es': ctx.fillStyle = '#c60b1e'; ctx.fillRect(x, y, w, h); ctx.fillStyle = '#ffc400'; ctx.fillRect(x, y + h * 0.25, w, h * 0.5); break;
+      case 'tr': { ctx.fillStyle = '#e30a17'; ctx.fillRect(x, y, w, h); const cx = x + w * 0.38, cy = y + h / 2;
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, h * 0.3, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#e30a17'; ctx.beginPath(); ctx.arc(cx + h * 0.08, cy, h * 0.24, 0, Math.PI * 2); ctx.fill();
+        U.star(ctx, x + w * 0.62, cy, h * 0.13, 5, 0.45); ctx.fillStyle = '#fff'; ctx.fill(); break; }
+      case 'pt': { ctx.fillStyle = '#1e9e3e'; ctx.fillRect(x, y, w, h); ctx.fillStyle = '#ffdf00'; ctx.beginPath(); ctx.moveTo(x + w / 2, y + h * 0.12); ctx.lineTo(x + w * 0.9, y + h / 2); ctx.lineTo(x + w / 2, y + h * 0.88); ctx.lineTo(x + w * 0.1, y + h / 2); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#1b3f95'; ctx.beginPath(); ctx.arc(x + w / 2, y + h / 2, h * 0.22, 0, Math.PI * 2); ctx.fill(); break; }
+      case 'en': default: { ctx.fillStyle = '#1b3f95'; ctx.fillRect(x, y, w, h); const L = (x1, y1, x2, y2, lw, c) => { ctx.strokeStyle = c; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); };
+        L(x, y, x + w, y + h, h * 0.2, '#fff'); L(x + w, y, x, y + h, h * 0.2, '#fff'); L(x, y, x + w, y + h, h * 0.08, '#d8263a'); L(x + w, y, x, y + h, h * 0.08, '#d8263a');
+        L(x + w / 2, y, x + w / 2, y + h, h * 0.32, '#fff'); L(x, y + h / 2, x + w, y + h / 2, h * 0.32, '#fff'); L(x + w / 2, y, x + w / 2, y + h, h * 0.18, '#d8263a'); L(x, y + h / 2, x + w, y + h / 2, h * 0.18, '#d8263a'); }
+    }
+    ctx.restore(); ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1; U.rr(ctx, x, y, w, h, Math.min(w, h) * 0.18); ctx.stroke();
+  };
   ART.check = function (ctx, x, y, r) {
     ctx.save(); ctx.fillStyle = ART.GREEN; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = r * 0.22; ctx.stroke();
     ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath(); ctx.moveTo(x - r * 0.42, y); ctx.lineTo(x - r * 0.1, y + r * 0.32); ctx.lineTo(x + r * 0.45, y - r * 0.32); ctx.stroke(); ctx.restore();

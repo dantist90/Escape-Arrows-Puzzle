@@ -78,7 +78,7 @@
     AP.ui.grid('set_lang', strip, AP.LANGS, (l, cx, cy, sz) => { const on = l[0] === AP.lang, held = AP.ui.isHeld('lang_' + l[0]);
       ctx.save(); if (held) ctx.translate(0, 2 * s);
       ctx.fillStyle = on ? AP.art.PINK : 'rgba(10,2,40,0.55)'; U.rr(ctx, cx, cy, sz, sz * 0.7, 14 * s); ctx.fill(); ctx.strokeStyle = on ? '#fff' : 'rgba(190,160,255,0.55)'; ctx.lineWidth = 2 * s; ctx.stroke();
-      U.text(ctx, l[0].toUpperCase(), cx + sz / 2, cy + sz * 0.24, { size: 17 * s, color: '#fff', weight: 900 });
+      const fw = sz * 0.5, fh = sz * 0.32; AP.art.flag(ctx, l[0], cx + sz / 2 - fw / 2, cy + sz * 0.08, fw, fh); // flag on top, the native name under it
       U.text(ctx, l[1], cx + sz / 2, cy + sz * 0.5, { size: 12 * s, color: on ? '#fff' : AP.art.INK_DIM, weight: 800, maxW: sz - 10 * s });
       ctx.restore();
       AP.ui.hit('lang_' + l[0], { x: cx, y: cy, w: sz, h: sz * 0.7 }, { onClick: () => { if (AP.lang !== l[0]) { AP.lang = l[0]; AP.persist(); AP.audio.select(); } } }); }, { horiz: true });

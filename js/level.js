@@ -29,7 +29,7 @@
     begin() {
       S.data = S.tour ? AP.tour.levelData(AP.tour.run().n, S.k) : AP.levelData(S.n); S.diff = S.data.diff || 'easy'; B().start(S.data);
       S.hearts = AP.CONFIG.level.hearts; S.maxHearts = S.hearts; S.done = false; S.winT = -1; S.failT = 0; S.heartPop = -1; S.combo = 0; S.comboT = 0; S.touch = null; S.pinch = null; S.tStart = AP.game.t;
-      S.shield = false; S.wand = false; S.hintId = -1; S.hintT = 0; S.fire = false; S.flyCoins = S.flyCoins || []; S.fx = [];
+      S.shield = false; S.wand = false; S.hintId = -1; S.hintT = 0; S.fire = false; S.goalGot = 0; S.flyCoins = S.flyCoins || []; S.fx = [];
       // pickups: seeded by the level, so a retry shows the same items (tournament levels use their own seed)
       AP.pickups.place(B().cur, S.tour ? AP.save.level : S.n, S.tour ? 5000 + AP.tour.run().n * 7 + S.k : S.n);
       // pre-level boosters apply to the first attempt only (they were paid in the start window)
@@ -67,7 +67,9 @@
       if (S.tour) { S.winT = -2; AP.poki.gameplayStop(); AP.audio.win(); AP.game.modal = S.tourEnd(true); return; }
       S.winT = -2; S.endFunnel(true); AP.poki.gameplayStop(); AP.audio.win();
       AP.tasks.bump('win'); AP.tasks.bump('arrows', B().cur ? B().cur.arrows.length : 0); if (S.hearts >= 3) AP.tasks.bump('stars3');
-      const C = AP.CONFIG.level; const stars = C.stars[U.clamp(S.hearts, 1, 3) - 1];
+      // star goals on the board decide the stars (at least 1 for finishing); otherwise the hearts left do
+      const C = AP.CONFIG.level, goals = (B().cur.items || []).filter(i => i.kind === 'star').length;
+      const stars = goals ? U.clamp(S.goalGot || 0, 1, 3) : C.stars[U.clamp(S.hearts, 1, 3) - 1];
       const rew = { coins: C.coins[S.diff] || C.coins.easy };
       if (S.diff === 'hard' || S.diff === 'superhard') rew.tickets = C.ticketOnHard;
       if (S.n % C.chapter === 0 && S.n === AP.save.level) rew.tickets = (rew.tickets || 0) + C.ticketPerChapter;
@@ -82,6 +84,7 @@
       it.got = true; const st = B().cur, P = AP.board.toScreen([it.x, it.y]), c = AP.CONFIG.pickups; AP.poki.measure('pickup', it.kind, 'collect');
       if (it.kind === 'coin') { S.flyCoins.push({ x0: P[0], y0: P[1], t: 0, n: c.coinValue }); AP.audio.coin(); return; }
       AP.audio.sparkle(); S.fx.push({ kind: it.kind, x: P[0], y: P[1], t: 0, row: it.y });
+      if (it.kind === 'star') { S.goalGot = (S.goalGot || 0) + 1; AP.audio.coin(S.goalGot); S.fx.push({ kind: 'star', x: P[0], y: P[1], t: 0 }); return; }
       if (it.kind === 'key') { st.locked[it.lock] = false; const la = st.arrows[it.lock]; if (la) { la.glow = 1; const lp = AP.board.screenOf(it.lock); S.fx.push({ kind: 'key', x: lp[0], y: lp[1], t: 0 }); } return; }
       if (it.kind === 'heart') { S.hearts++; S.maxHearts = Math.max(S.maxHearts, S.hearts); S.heartPop = -1; }
       else if (it.kind === 'fire') S.fire = true;
@@ -119,6 +122,8 @@
       if (AP.game.modal) return; const a = B().pick(x, y); if (!a) return;
       if (S.wand) { if (AP.boosters.use('wand') && B().removeArrow(a.id)) { S.wand = false; AP.audio.sparkle(); } return; }
       const r = B().tapArrow(a.id, S.fire); if (S.fire && B().cur.arrows[a.id].fire) { S.fire = false; AP.audio.whoosh(); }
+      if (r === 'melt') { AP.audio.pop(); AP.ui.toast(AP.t('ice_melt')); return; }
+      if (r === 'twin') { AP.audio.tick(); AP.ui.toast(AP.t('twin_wait')); return; }
       if (r === 'locked') { AP.audio.tick(); AP.ui.toast(AP.t('need_key')); return; } // no heart lost: it just wobbles
       if (r === 'fly') { S.combo++; S.comboT = 1.2; AP.audio.fly(S.combo); }
       else if (r === 'bump') AP.audio.tick();
@@ -166,6 +171,9 @@
         if (!full && i === S.hearts && S.heartPop >= 0) k = 1 + Math.sin(Math.min(1, S.heartPop / 0.3) * Math.PI) * 0.5;
         ctx.save(); ctx.translate(hx0 + i * (hr * 2 + gap), cy); ctx.scale(k, k); U.heart(ctx, 0, -hr * 0.85, hr * 2);
         ctx.fillStyle = full ? '#ff4d6d' : 'rgba(255,255,255,0.18)'; if (full) { ctx.shadowColor = '#ff4d6d'; ctx.shadowBlur = 8 * s; } ctx.fill(); ctx.restore(); }
+      // star goals: 3 slots on the left of the top row
+      const goals = B().cur ? (B().cur.items || []).filter(i => i.kind === 'star').length : 0;
+      for (let i = 0; i < goals; i++) { const sx = r.x + 22 * s + i * 26 * s; if (i < (S.goalGot || 0)) AP.art.currency(ctx, 'stars', sx, cy, 10 * s); else { U.star(ctx, sx, cy + 1 * s, 11 * s, 5, 0.5); ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fill(); } }
       if (S.fire) AP.pickups.icon(ctx, 'fire', r.x + r.w / 2 - (n * hr * 2 + (n - 1) * gap) / 2 - hr * 1.2, cy, hr * 0.8, AP.game.t);
       if (S.shield) AP.art.icon(ctx, 'shield', hx0 + n * (hr * 2 + gap) - hr * 0.2, cy, hr * 0.9);
     },

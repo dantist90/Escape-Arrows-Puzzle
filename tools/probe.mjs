@@ -198,7 +198,7 @@ try {
   await page.screenshot({ path: path.join(shots, 'pickups_390x844.png') });
   const shoot = async (kind) => { const at = await page.evaluate((k) => QA.placeItem(k), kind); if (at) await page.evaluate((p) => QA.tapAt(p[0], p[1]), at); await step(page, 1.2); return state(page); };
   { const c0 = (await state(page)).coins; st = await shoot('coin');
-    check('coin: collected, flies to the pill, +25 coins', st.coins === c0 + 25 && st.events.includes('pickup / coin / collect') && st.board.flyingCoins === 0, `${c0} -> ${st.coins}`); }
+    check('coin: collected, flies to the pill, +10 coins', st.coins === c0 + 10 && st.events.includes('pickup / coin / collect') && st.board.flyingCoins === 0, `${c0} -> ${st.coins}`); }
   { const h0 = (await state(page)).board.hearts; st = await shoot('heart');
     check('heart: +1 heart', st.board.hearts === h0 + 1 && st.events.includes('pickup / heart / collect'), `${h0} -> ${st.board.hearts}`); }
   { const l0 = (await state(page)).board.left; st = await shoot('bomb');
@@ -210,11 +210,11 @@ try {
   { if ((await state(page)).board.left > 0) { st = await shoot('lightning'); check('lightning: collected', st.events.includes('pickup / lightning / collect')); } }
   // ----- lock & key, rotator, portal (levels 23 / 27 / 31): placed only where the board stays solvable -----
   { const mech = await page.evaluate(() => { const out = { levels: 0, solvable: 0, locks: 0, rot: 0, portal: 0 };
-      for (let n = 23; n <= 80; n++) { const lv = AP.levelData(n); const st = AP.board.start(lv); AP.pickups.place(st, n, n); out.levels++;
+      for (let n = 23; n <= 100; n++) { const lv = AP.levelData(n); const st = AP.board.start(lv); AP.pickups.place(st, n, n); out.levels++;
         if (AP.board.solveLive(st)) out.solvable++; if (Object.keys(st.locked).length) out.locks++;
         const f = Object.values(st.m.field); if (f.some((x) => x.t === 'rot')) out.rot++; if (f.some((x) => x.t === 'portal')) out.portal++; }
       AP.board.cur = null; return out; });
-    check('levels 23-80: every board with mechanics stays solvable', mech.solvable === mech.levels, JSON.stringify(mech));
+    check('levels 23-100: every board with mechanics stays solvable', mech.solvable === mech.levels, JSON.stringify(mech));
     check('locks / rotators / portals show up on most levels where they are open', mech.locks > mech.levels * 0.6 && mech.rot > 30 && mech.portal > 30, JSON.stringify(mech)); }
   await page.evaluate(() => { ['key', 'rotator', 'portal'].forEach((k) => { AP.save.seen['coach_pk_' + k] = 1; }); AP.save.level = 40; AP.game.modal = null; QA.goto('level', { n: 40 }); }); await step(page, 0.3);
   st = await state(page);
@@ -226,7 +226,17 @@ try {
   await page.evaluate(() => { AP.save.boosters.hint = 0; }); st = await clear();
   check('level 40 with lock / rotator / portal cleared by taps only', st.modal === 'win' && st.board.left === 0 && st.events.includes('pickup / key / collect'), `${st.modal} left ${st.board && st.board.left}`);
   await page.evaluate(() => { AP.game.modal = null; }); await step(page, 0.1);
-  check('pickup unlocks: coin 3, bomb 7, fire 11, heart 15, lightning 19', await page.evaluate(() => ['coin', 'bomb', 'fire', 'heart', 'lightning'].map((k) => AP.pickups.unlockOf(k)).join() === '3,7,11,15,19'));
+  // ice, twins, star goals (39 / 43 / 35): level 50 is played by taps; the stars follow the star goals collected
+  await page.evaluate(() => { ['pk_star', 'ice', 'twin'].forEach((k) => { AP.save.seen['coach_' + k] = 1; }); AP.save.level = 50; QA.goto('level', { n: 50 }); }); await step(page, 0.3);
+  st = await state(page); await page.screenshot({ path: path.join(shots, 'ice_twins_stars_390x844.png') });
+  { const ice = st.board.arrows.find((a) => a.ice), tw = st.board.arrows.filter((a) => a.twin);
+    check('level 50: frozen arrows, a twin pair and 3 star goals', !!ice && tw.length === 2 && st.board.goals === 3, `ice ${!!ice} twins ${tw.length} goals ${st.board.goals}`);
+    if (ice) { const h0 = st.board.hearts, l0 = st.board.left; await page.evaluate((p) => QA.tapAt(p[0], p[1]), ice.at); await step(page, 0.4); const s2 = await state(page);
+      check('first tap on ice: it melts, nothing else (no heart lost, still there)', s2.board.hearts === h0 && s2.board.left === l0 && !s2.board.arrows.find((a) => a.id === ice.id).ice); } }
+  st = await clear();
+  check('level 50 with ice / twins / stars cleared by taps; stars = star goals collected', st.modal === 'win' && st.board.left === 0 && (await page.evaluate(() => AP.save.best[50])) === Math.max(1, Math.min(3, st.board.goalGot)), `${st.modal} got ${st.board.goalGot} best ${await page.evaluate(() => AP.save.best[50])}`);
+  await page.evaluate(() => { AP.game.modal = null; }); await step(page, 0.1);
+  check('unlocks: coin 3, bomb 7, fire 11, heart 15, lightning 19, lock 23, turn 27, portal 31, star 35, ice 39, twins 43', await page.evaluate(() => AP.CONFIG.pickups.order.map((k) => AP.pickups.unlockOf(k)).join() === '3,7,11,15,19,23,27,31,35,39,43'));
   check('no pickups on levels 1-2', await page.evaluate(() => { const st = { m: AP.board.build(AP.LEVELS[1]), items: [] }; st.occ = AP.board.occupancy(st.m, st.m.arrows.map(() => true)); AP.pickups.place(st, 2, 2); return st.items.length === 0; }));
   // ----- stage 5: tournament (free ticket on unlock, 5 levels vs 19 AI, results, Roadmap) -----
   // these sections are hidden in the lobby for now (CONFIG.features); the rig switches them on to keep testing them

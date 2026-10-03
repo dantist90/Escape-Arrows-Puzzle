@@ -112,10 +112,11 @@
       // live board: arrows left, hearts, idle arrows with a tap point on screen and whether they are free, view zoom
       board() {
         const st = AP.board.cur; if (!st || !st.view) return null; const L = AP.screens.level; // no view before the first frame
+        const freeSet = new Set(AP.board.freeIds()); // the game's own rule (locks, twins) for what can leave now
         return { n: L.n, diff: L.diff, total: st.arrows.length, left: st.left, hearts: L.hearts, maxHearts: L.maxHearts, busy: AP.board.busy(), zoom: st.view ? st.view.c / st.view.cFit : 1,
           hint: L.hintId, shield: !!L.shield, wand: !!L.wand, boosters: { ...AP.save.boosters },
-          fire: !!L.fire, items: (st.items || []).filter(i => !i.got).map(i => ({ kind: i.kind, x: i.x, y: i.y })), flyingCoins: (L.flyCoins || []).length,
-          arrows: st.arrows.filter(a => a.state === 'idle' && st.alive[a.id]).map(a => ({ id: a.id, at: AP.board.screenOf(a.id), free: !(st.locked && st.locked[a.id]) && AP.board.ray(st.m, st.occ, a).free, locked: !!(st.locked && st.locked[a.id]) })) };
+          fire: !!L.fire, goals: (st.items || []).filter(i => i.kind === 'star').length, goalGot: L.goalGot || 0, items: (st.items || []).filter(i => !i.got).map(i => ({ kind: i.kind, x: i.x, y: i.y })), flyingCoins: (L.flyCoins || []).length,
+          arrows: st.arrows.filter(a => a.state === 'idle' && st.alive[a.id]).map(a => ({ id: a.id, at: AP.board.screenOf(a.id), free: freeSet.has(a.id), locked: !!(st.locked && st.locked[a.id]), ice: !!(st.ice && st.ice[a.id]), twin: st.twin && st.twin[a.id] !== undefined })) };
       },
       // put a pickup on the first ray cell of a free arrow; returns that arrow's tap point (or null)
       placeItem(kind) { const st = AP.board.cur; const f = AP.board.freeIds().find(id => { const a = st.arrows[id], h = a.cells[a.cells.length - 1], x = h[0] + a.dir[0], y = h[1] + a.dir[1]; return x >= 0 && y >= 0 && x < st.m.w && y < st.m.h; });
