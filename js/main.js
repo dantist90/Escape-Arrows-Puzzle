@@ -114,8 +114,13 @@
         const st = AP.board.cur; if (!st || !st.view) return null; const L = AP.screens.level; // no view before the first frame
         return { n: L.n, diff: L.diff, total: st.arrows.length, left: st.left, hearts: L.hearts, maxHearts: L.maxHearts, busy: AP.board.busy(), zoom: st.view ? st.view.c / st.view.cFit : 1,
           hint: L.hintId, shield: !!L.shield, wand: !!L.wand, boosters: { ...AP.save.boosters },
+          fire: !!L.fire, items: (st.items || []).filter(i => !i.got).map(i => ({ kind: i.kind, x: i.x, y: i.y })), flyingCoins: (L.flyCoins || []).length,
           arrows: st.arrows.filter(a => a.state === 'idle' && st.alive[a.id]).map(a => ({ id: a.id, at: AP.board.screenOf(a.id), free: AP.board.ray(st.m, st.occ, a).free })) };
       },
+      // put a pickup on the first ray cell of a free arrow; returns that arrow's tap point (or null)
+      placeItem(kind) { const st = AP.board.cur; const f = AP.board.freeIds().find(id => { const a = st.arrows[id], h = a.cells[a.cells.length - 1], x = h[0] + a.dir[0], y = h[1] + a.dir[1]; return x >= 0 && y >= 0 && x < st.m.w && y < st.m.h; });
+        if (f === undefined) return null; const a = st.arrows[f], h = a.cells[a.cells.length - 1]; st.items = (st.items || []).filter(i => !(i.x === h[0] + a.dir[0] && i.y === h[1] + a.dir[1]));
+        st.items.push({ kind, x: h[0] + a.dir[0], y: h[1] + a.dir[1], t: 0, got: false }); return AP.board.screenOf(f); },
       // solvability of every level in AP.LEVELS (null = stuck)
       solveAll() { return AP.LEVELS.map((lv, i) => ({ n: i + 1, errs: AP.board.validate(lv), order: AP.board.solve(lv) })); },
       // hit rects drawn in the last frame, by id

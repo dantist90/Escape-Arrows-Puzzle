@@ -25,11 +25,13 @@
     // arg: {n, pre} for the Levels mode, {tour: true, k} for tournament level k (0-based) of the current run
     enter(arg) { S.tour = !!(arg && arg.tour); S.k = arg && arg.k || 0; S.n = S.tour ? AP.save.level : (arg && arg.n) || AP.save.level; S.replay = !S.tour && S.n < AP.save.level; S.pre = (arg && arg.pre) || {}; S.begin(); AP.poki.gameplayStart();
       if (S.tour) return; const g = AP.boosters.gifts(S.n); if (g.length) { S.newB = g; AP.ui.toast(AP.t('new_booster') + ' ' + g.map(id => AP.t('b_' + id)).join(', ')); } },
-    leave() { if (S.tour) { if (!S.done) S.tourEnd(false); } else S.endFunnel(false); AP.poki.gameplayStop(); B().cur = null; }, // quitting mid-level = fail (no-op after an outcome)
+    leave() { S.flyCoins.forEach(f => AP.meta.add('coins', f.n)); S.flyCoins = []; if (S.tour) { if (!S.done) S.tourEnd(false); } else S.endFunnel(false); AP.poki.gameplayStop(); B().cur = null; }, // quitting mid-level = fail (no-op after an outcome)
     begin() {
       S.data = S.tour ? AP.tour.levelData(AP.tour.run().n, S.k) : AP.levelData(S.n); S.diff = S.data.diff || 'easy'; B().start(S.data);
       S.hearts = AP.CONFIG.level.hearts; S.maxHearts = S.hearts; S.done = false; S.winT = -1; S.failT = 0; S.heartPop = -1; S.combo = 0; S.comboT = 0; S.touch = null; S.pinch = null; S.tStart = AP.game.t;
-      S.shield = false; S.wand = false; S.hintId = -1; S.hintT = 0;
+      S.shield = false; S.wand = false; S.hintId = -1; S.hintT = 0; S.fire = false; S.flyCoins = S.flyCoins || []; S.fx = [];
+      // pickups: seeded by the level, so a retry shows the same items (tournament levels use their own seed)
+      AP.pickups.place(B().cur, S.tour ? AP.save.level : S.n, S.tour ? 5000 + AP.tour.run().n * 7 + S.k : S.n);
       // pre-level boosters apply to the first attempt only (they were paid in the start window)
       const P = S.pre || {}; if (P.heart) { S.hearts++; S.maxHearts++; } S.warm = P.warmup ? 3 : 0; S.warmT = 0.6; S.glowT = P.glow ? 10 : 0; S.pre = {};
       if (S.tour) AP.poki.measure('tournament', 'level-' + (S.k + 1), 'start'); else if (S.replay) { S.replayOpen = true; AP.poki.measure('replay', S.n, 'start'); } else AP.poki.levelStart(S.n, S.diff);
@@ -46,6 +48,7 @@
       // Poki: gameplay runs only while the board is playable (no window open, level not over)
       if (AP.game.modal || S.done) AP.poki.gameplayStop(); else if (!AP.trans.active) AP.poki.gameplayStart();
       B().update(dt, {
+        onCell: (a, c) => { const it = AP.pickups.at(B().cur, c[0], c[1]); if (it) S.collect(it); },
         onHit: () => { if (S.done) return; if (S.shield) { S.shield = false; AP.audio.bump(); AP.audio.sparkle(); return; } S.hearts = Math.max(0, S.hearts - 1); S.heartPop = 0; AP.audio.bump(); AP.audio.heartLost(); S.combo = 0;
           if (S.hearts <= 0) S.failT = 0.45; },
       });
@@ -74,6 +77,33 @@
       AP.game.modal = { type: 'win', stars, rew, t: 0 };
       AP.emit(60, () => ({ x: U.rand(0, AP.ui.w), y: -20, vx: U.rand(-60, 60), vy: U.rand(80, 260), g: 120, r: U.rand(3, 6) * AP.ui.scale, life: 2.2, maxLife: 2.2, color: U.pick(AP.art.TUBE.concat(['#3fd8ff', '#fff'])), layer: 1 }));
     },
+    // ----- pickups: a flying head crossed an item -----
+    collect(it) {
+      it.got = true; const st = B().cur, P = AP.board.toScreen([it.x, it.y]), c = AP.CONFIG.pickups; AP.poki.measure('pickup', it.kind, 'collect');
+      if (it.kind === 'coin') { S.flyCoins.push({ x0: P[0], y0: P[1], t: 0, n: c.coinValue }); AP.audio.coin(); return; }
+      AP.audio.sparkle(); S.fx.push({ kind: it.kind, x: P[0], y: P[1], t: 0, row: it.y });
+      if (it.kind === 'heart') { S.hearts++; S.maxHearts = Math.max(S.maxHearts, S.hearts); S.heartPop = -1; }
+      else if (it.kind === 'fire') S.fire = true;
+      else if (it.kind === 'bomb' || it.kind === 'lightning') {
+        const hitCell = it.kind === 'bomb' ? (q => Math.max(Math.abs(q[0] - it.x), Math.abs(q[1] - it.y)) <= c.bombRadius) : (q => q[1] === it.y);
+        st.arrows.forEach(a => { if (a.state === 'idle' && st.alive[a.id] && a.cells.some(hitCell)) B().removeArrow(a.id); });
+        st.shake = 1; AP.audio.bump();
+        AP.emit(26, i => { const ang = i / 26 * Math.PI * 2, sp = U.rand(120, 260) * AP.ui.scale; return { x: P[0], y: P[1], vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, drag: 3, r: U.rand(2, 5) * AP.ui.scale, life: 0.6, maxLife: 0.6, color: it.kind === 'bomb' ? U.pick(['#ffd36a', '#ff6a2a', '#fff']) : U.pick(['#ffe14a', '#fff']), layer: 0 }; });
+      }
+    },
+    // coins fly along an arc into the coins pill, then count (+25 floats by the pill)
+    drawPickupFx(ctx, s) {
+      const dt = AP.game.dt || 0.016, pr = AP.game.pillRects && AP.game.pillRects.coins, tx = pr ? pr.x + pr.h / 2 : AP.ui.w - 60, ty = pr ? pr.y + pr.h / 2 : 30;
+      S.flyCoins = S.flyCoins.filter(f => { f.t += dt / 0.75; const k = U.easeIn(Math.min(1, f.t)), mx = (f.x0 + tx) / 2, my = Math.min(f.y0, ty) - 80 * s;
+        const x = (1 - k) * (1 - k) * f.x0 + 2 * (1 - k) * k * mx + k * k * tx, y = (1 - k) * (1 - k) * f.y0 + 2 * (1 - k) * k * my + k * k * ty;
+        if (f.t >= 1) { AP.meta.add('coins', f.n); S.fx.push({ kind: 'plus', x: tx + 30 * s, y: ty + 26 * s, t: 0, n: f.n }); AP.audio.coin(2); return false; }
+        AP.art.currency(ctx, 'coins', x, y, 13 * s * (1 + 0.3 * Math.sin(k * Math.PI))); return true; });
+      S.fx = S.fx.filter(f => { f.t += dt; const a = Math.max(0, 1 - f.t / 0.9);
+        if (f.kind === 'plus') U.text(ctx, '+' + f.n, f.x, f.y - f.t * 30 * s, { size: 18 * s, color: AP.art.YELLOW, weight: 900, stroke: '#3a1670', strokeW: 4 * s });
+        else if (f.kind === 'lightning' && B().cur && B().cur.view) { const v = B().cur.view, yy = v.oy + (f.row + 0.5) * v.c; ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = '#ffe14a'; ctx.lineWidth = v.c * 0.5 * a; ctx.beginPath(); ctx.moveTo(v.ox, yy); ctx.lineTo(v.ox + B().cur.m.w * v.c, yy); ctx.stroke(); ctx.restore(); }
+        else { ctx.save(); ctx.globalAlpha = a; AP.pickups.icon(ctx, f.kind, f.x, f.y - f.t * 40 * s, 16 * s * (1 + f.t)); ctx.restore(); }
+        return f.t < 0.9; });
+    },
     // ----- input: tap = arrow; drag = pan; pinch / wheel / buttons = zoom -----
     onDown(x, y) { S.touch = { x0: x, y0: y, x, y, drag: false }; },
     onMove(x, y) { const T = S.touch; if (!T || S.pinch) return; const s = AP.ui.scale;
@@ -87,7 +117,7 @@
     tap(x, y) {
       if (AP.game.modal) return; const a = B().pick(x, y); if (!a) return;
       if (S.wand) { if (AP.boosters.use('wand') && B().removeArrow(a.id)) { S.wand = false; AP.audio.sparkle(); } return; }
-      const r = B().tapArrow(a.id);
+      const r = B().tapArrow(a.id, S.fire); if (S.fire && B().cur.arrows[a.id].fire) { S.fire = false; AP.audio.whoosh(); }
       if (r === 'fly') { S.combo++; S.comboT = 1.2; AP.audio.fly(S.combo); }
       else if (r === 'bump') AP.audio.tick();
     },
@@ -111,6 +141,7 @@
       S.drawHud(ctx, R.hud, s);
       if (B().cur && B().zoomable()) S.drawZoom(ctx, R.board, s);
       S.drawBoosters(ctx, R.foot || R.side, s, !R.foot);
+      S.drawPickupFx(ctx, s);
       if (S.wand) { const ty = R.board.y + 14 * s; ctx.fillStyle = 'rgba(15,4,45,0.85)'; U.rr(ctx, w / 2 - 120 * s, ty, 240 * s, 32 * s, 16 * s); ctx.fill(); U.text(ctx, AP.t('pick_arrow'), w / 2, ty + 16 * s, { size: 14 * s, color: '#fff', weight: 800, maxW: 224 * s }); }
     },
     // booster bar: hint, shield, wand (each opens the buy window when empty)
@@ -133,6 +164,7 @@
         if (!full && i === S.hearts && S.heartPop >= 0) k = 1 + Math.sin(Math.min(1, S.heartPop / 0.3) * Math.PI) * 0.5;
         ctx.save(); ctx.translate(hx0 + i * (hr * 2 + gap), cy); ctx.scale(k, k); U.heart(ctx, 0, -hr * 0.85, hr * 2);
         ctx.fillStyle = full ? '#ff4d6d' : 'rgba(255,255,255,0.18)'; if (full) { ctx.shadowColor = '#ff4d6d'; ctx.shadowBlur = 8 * s; } ctx.fill(); ctx.restore(); }
+      if (S.fire) AP.pickups.icon(ctx, 'fire', r.x + r.w / 2 - (n * hr * 2 + (n - 1) * gap) / 2 - hr * 1.2, cy, hr * 0.8, AP.game.t);
       if (S.shield) AP.art.icon(ctx, 'shield', hx0 + n * (hr * 2 + gap) - hr * 0.2, cy, hr * 0.9);
     },
     drawZoom(ctx, r, s) {

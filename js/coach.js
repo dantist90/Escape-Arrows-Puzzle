@@ -21,6 +21,7 @@
     { id: 'pre', done: 'tap', mood: 'wow', pos: 'top', when: () => AP.game.modal && AP.game.modal.type === 'start' && !AP.trans.active, target: () => hitRect('bst_heart') },
     { id: 'tour', done: 'tap', mood: 'wow', when: () => AP.CONFIG.features.tournament && AP.game.state === 'lobby' && !AP.game.modal && !AP.trans.active && AP.tour.open(), target: () => hitRect('tour') },
     { id: 'roadmap', done: 'tap', mood: 'happy', when: () => AP.CONFIG.features.roadmap && AP.game.state === 'lobby' && !AP.game.modal && !AP.trans.active && (AP.save.stats.tourRuns || 0) >= 1 && !AP.tour.run(), target: () => hitRect('roadmap') },
+    ...['coin', 'bomb', 'fire', 'heart', 'lightning'].map(k => ({ id: 'pk_' + k, done: 'tap', mood: 'wow', when: () => inLevel() && !!AP.pickups.rectOf(k), target: () => AP.pickups.rectOf(k) })),
     { id: 'zoom', done: 'tap', mood: 'idle', when: () => inLevel() && AP.board.zoomable() && !!hitRect('zoom_in'), target: () => hitRect('zoom_in') },
   ];
 

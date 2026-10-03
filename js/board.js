@@ -90,9 +90,11 @@
       return true;
     },
     // ----- actions: returns 'fly' | 'bump' | null -----
-    tapArrow(id) {
+    // pass: true = fire pickup, the arrow flies through everything in its way
+    tapArrow(id, pass) {
       const st = B.cur; const a = st && st.arrows[id]; if (!a || a.state !== 'idle' || !st.alive[id]) return null;
-      const r = B.ray(st.m, st.occ, a);
+      let r = B.ray(st.m, st.occ, a);
+      if (pass && !r.free) { const h = a.cells[a.cells.length - 1]; let x = h[0] + a.dir[0], y = h[1] + a.dir[1], d = 0; while (x >= 0 && y >= 0 && x < st.m.w && y < st.m.h) { d++; x += a.dir[0]; y += a.dir[1]; } r = { free: true, dist: d, edge: d + 1, blocker: -1 }; a.fire = true; }
       if (r.free) {
         st.alive[id] = false; st.left--; st.occ = B.occupancy(st.m, st.alive);
         const v = st.view; const off = v ? Math.ceil(Math.hypot(v.sw, v.sh) / v.c) + 2 : 40;
@@ -108,6 +110,8 @@
       for (const a of st.arrows) {
         a.flash = Math.max(0, a.flash - dt * 1.6); a.glow = Math.max(0, a.glow - dt);
         if (a.state === 'fly') { a.t += dt; a.v += dt * 70; a.p += a.v * dt;
+          // cells the head has reached on its ray (past its own body): pickups there are collected (ev.onCell)
+          const hi = Math.min(a.path.length - 1, Math.floor(a.p + a.cells.length - 1 + 0.5)); for (let i = Math.max(a.cells.length, a.seen || 0); i <= hi; i++) { const c = a.path[i]; if (ev.onCell && c[0] >= 0 && c[1] >= 0 && c[0] < st.m.w && c[1] < st.m.h) ev.onCell(a, c); } a.seen = hi + 1;
           if (st.view && Math.random() < 0.9) { const hp = B.pointAt(a.path, a.p + a.cells.length - 1); B.trail(st, hp, a.col1); }
           if (a.p >= a.end) { a.state = 'gone'; if (ev.onGone) ev.onGone(a); } }
         else if (a.state === 'pop') { a.t += dt; if (a.t > 0.35) { a.state = 'gone'; if (ev.onGone) ev.onGone(a); } }
@@ -163,6 +167,7 @@
       const y0 = Math.max(0, Math.floor((R.y - v.oy) / v.c) - 1), y1 = Math.min(st.m.h, Math.ceil((R.y + R.h - v.oy) / v.c) + 1);
       ctx.fillStyle = 'rgba(200,180,255,0.22)'; const dr = U.clamp(v.c * 0.05, 1, 3);
       for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { if (st.mask && !st.mask[y * st.m.w + x]) continue; ctx.beginPath(); ctx.arc(v.ox + (x + 0.5) * v.c, v.oy + (y + 0.5) * v.c, dr, 0, Math.PI * 2); ctx.fill(); }
+      if (AP.pickups) AP.pickups.draw(ctx, st, v); // coins and power-ups on empty cells, under the arrows
       // idle arrows under moving ones
       for (const a of st.arrows) if (a.state === 'idle' && st.alive[a.id]) B.drawArrow(ctx, a, v);
       for (const a of st.arrows) if (a.state === 'bump') B.drawArrow(ctx, a, v);

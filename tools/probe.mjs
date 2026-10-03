@@ -191,6 +191,25 @@ try {
     check('buy window: rewarded on the left, coins on the right, one row', !!ad && !!co && ad.x < co.x && Math.abs(ad.y - co.y) < 2 && !overlap(ad, co));
     await page.screenshot({ path: path.join(shots, 'buy_new_390x844.png') });
     await page.evaluate(() => { AP.game.modal = null; QA.goto('lobby'); }); await step(page, 0.2); }
+  // ----- field pickups: coin, bomb, fire, heart, lightning (each placed on the ray of a free arrow, then collected) -----
+  await page.evaluate(() => { AP.save.level = 30; ['coin', 'bomb', 'fire', 'heart', 'lightning'].forEach((k) => { AP.save.seen['coach_pk_' + k] = 1; }); AP.game.modal = null; QA.goto('level', { n: 30 }); }); await step(page, 0.3);
+  st = await state(page);
+  check('level 30 has pickups on the board (coins at least)', st.board.items.some((i) => i.kind === 'coin'), JSON.stringify(st.board.items));
+  await page.screenshot({ path: path.join(shots, 'pickups_390x844.png') });
+  const shoot = async (kind) => { const at = await page.evaluate((k) => QA.placeItem(k), kind); if (at) await page.evaluate((p) => QA.tapAt(p[0], p[1]), at); await step(page, 1.2); return state(page); };
+  { const c0 = (await state(page)).coins; st = await shoot('coin');
+    check('coin: collected, flies to the pill, +25 coins', st.coins === c0 + 25 && st.events.includes('pickup / coin / collect') && st.board.flyingCoins === 0, `${c0} -> ${st.coins}`); }
+  { const h0 = (await state(page)).board.hearts; st = await shoot('heart');
+    check('heart: +1 heart', st.board.hearts === h0 + 1 && st.events.includes('pickup / heart / collect'), `${h0} -> ${st.board.hearts}`); }
+  { const l0 = (await state(page)).board.left; st = await shoot('bomb');
+    check('bomb: collected, arrows around it pop', st.events.includes('pickup / bomb / collect') && st.board.left < l0, `${l0} -> ${st.board.left}`); }
+  { st = await shoot('fire'); check('fire: collected, charge shown', st.board.fire && st.events.includes('pickup / fire / collect'));
+    const blk = st.board.arrows.find((a) => !a.free), h0 = st.board.hearts, l0 = st.board.left;
+    if (blk) { await page.evaluate((p) => QA.tapAt(p[0], p[1]), blk.at); await step(page, 1.2); st = await state(page);
+      check('fire: a blocked arrow flies through, no heart lost, charge used', st.board.left === l0 - 1 && st.board.hearts === h0 && !st.board.fire, `left ${l0} -> ${st.board.left}, hearts ${h0} -> ${st.board.hearts}`); } }
+  { if ((await state(page)).board.left > 0) { st = await shoot('lightning'); check('lightning: collected', st.events.includes('pickup / lightning / collect')); } }
+  check('pickup unlocks: coin 3, bomb 7, fire 11, heart 15, lightning 19', await page.evaluate(() => ['coin', 'bomb', 'fire', 'heart', 'lightning'].map((k) => AP.pickups.unlockOf(k)).join() === '3,7,11,15,19'));
+  check('no pickups on levels 1-2', await page.evaluate(() => { const st = { m: AP.board.build(AP.LEVELS[1]), items: [] }; st.occ = AP.board.occupancy(st.m, st.m.arrows.map(() => true)); AP.pickups.place(st, 2, 2); return st.items.length === 0; }));
   // ----- stage 5: tournament (free ticket on unlock, 5 levels vs 19 AI, results, Roadmap) -----
   // these sections are hidden in the lobby for now (CONFIG.features); the rig switches them on to keep testing them
   await page.evaluate(() => { Object.assign(AP.CONFIG.features, { tournament: true, roadmap: true, room: true, tickets: true, stars: true }); });

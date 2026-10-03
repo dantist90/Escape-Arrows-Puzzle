@@ -33,6 +33,17 @@ AP.CONFIG = {
     adFromLevel: 4,          // no interstitial before this level (FTUE stays ad-free)
   },
 
+  // ---------- field pickups: items on empty cells, collected when a flying arrow's head passes over them ----------
+  // A new kind opens every `every` levels starting at `firstLevel`, in `order`: coin 3, bomb 7, fire 11, heart 15, lightning 19.
+  pickups: {
+    firstLevel: 3, every: 4,
+    order: ['coin', 'bomb', 'fire', 'heart', 'lightning'],
+    coinValue: 25,                 // coins per collected coin (they fly into the coins pill)
+    coins: [1, 3],                 // coins per level (min, max), on cells some arrow will fly over
+    specialChance: 0.7,            // chance of one special item (bomb / fire / heart / lightning) on a level once opened
+    bombRadius: 1,                 // bomb: arrows with a cell within this many cells (square) pop
+  },
+
   // ---------- boosters (stage 3) ----------
   // unlock: level where the booster opens (with `gift` free uses and a short tip); price: coins per use
   boosters: {
