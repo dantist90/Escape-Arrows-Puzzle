@@ -44,10 +44,11 @@ try {
     const st = await state(page);
     const hits = await page.evaluate(() => QA.hits());
     const out = hits.filter((r) => r.id !== 'modal_block' && !inside(r, w, h));
-    const play = hits.find((r) => r.id === 'play'), tour = hits.find((r) => r.id === 'tour');
+    const play = hits.find((r) => r.id === 'play'), alb = hits.find((r) => r.id === 'side_album');
     check(`${w}x${h}: lobby`, st.scene === 'lobby', st.scene);
     check(`${w}x${h}: widgets inside the screen`, out.length === 0, out.map((r) => r.id).join(' '));
-    check(`${w}x${h}: Play / Tournament side by side, no overlap`, !!play && !!tour && !overlap(play, tour));
+    check(`${w}x${h}: Album + Level at the bottom, Level on the right, no overlap`, !!play && !!alb && !overlap(play, alb) && alb.x < play.x && Math.abs(alb.y - play.y) < 2);
+    check(`${w}x${h}: hidden for now — no Tournament, Room, Roadmap in the lobby`, !hits.some((r) => ['tour', 'side_room', 'roadmap'].includes(r.id)));
     await page.screenshot({ path: path.join(shots, `lobby_${w}x${h}.png`) });
   }
   // ----- flow -----
@@ -191,6 +192,8 @@ try {
     await page.screenshot({ path: path.join(shots, 'buy_new_390x844.png') });
     await page.evaluate(() => { AP.game.modal = null; QA.goto('lobby'); }); await step(page, 0.2); }
   // ----- stage 5: tournament (free ticket on unlock, 5 levels vs 19 AI, results, Roadmap) -----
+  // these sections are hidden in the lobby for now (CONFIG.features); the rig switches them on to keep testing them
+  await page.evaluate(() => { Object.assign(AP.CONFIG.features, { tournament: true, roadmap: true, room: true, tickets: true, stars: true }); });
   await page.setViewport({ width: 390, height: 844 });
   await page.evaluate(() => { AP.game.modal = null; AP.save.level = 8; AP.save.tickets = 0; AP.save.arrows = 0; AP.save.roadmap = 0; AP.save.seen.coach_tour = 0; AP.save.seen.tour_gift = 0; QA.goto('lobby'); }); await step(page, 0.6);
   st = await state(page);

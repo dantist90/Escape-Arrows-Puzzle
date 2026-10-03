@@ -19,8 +19,8 @@
     { id: 'hearts', done: 'tap', mood: 'oops', when: () => inLevel() && L().hearts < L().maxHearts && L().hearts > 0, target: () => hitRect('hud_hearts') },
     { id: 'hint', ...boosterTip('hint') }, { id: 'shield', ...boosterTip('shield') }, { id: 'wand', ...boosterTip('wand') },
     { id: 'pre', done: 'tap', mood: 'wow', pos: 'top', when: () => AP.game.modal && AP.game.modal.type === 'start' && !AP.trans.active, target: () => hitRect('bst_heart') },
-    { id: 'tour', done: 'tap', mood: 'wow', when: () => AP.game.state === 'lobby' && !AP.game.modal && !AP.trans.active && AP.tour.open(), target: () => hitRect('tour') },
-    { id: 'roadmap', done: 'tap', mood: 'happy', when: () => AP.game.state === 'lobby' && !AP.game.modal && !AP.trans.active && (AP.save.stats.tourRuns || 0) >= 1 && !AP.tour.run(), target: () => hitRect('roadmap') },
+    { id: 'tour', done: 'tap', mood: 'wow', when: () => AP.CONFIG.features.tournament && AP.game.state === 'lobby' && !AP.game.modal && !AP.trans.active && AP.tour.open(), target: () => hitRect('tour') },
+    { id: 'roadmap', done: 'tap', mood: 'happy', when: () => AP.CONFIG.features.roadmap && AP.game.state === 'lobby' && !AP.game.modal && !AP.trans.active && (AP.save.stats.tourRuns || 0) >= 1 && !AP.tour.run(), target: () => hitRect('roadmap') },
     { id: 'zoom', done: 'tap', mood: 'idle', when: () => inLevel() && AP.board.zoomable() && !!hitRect('zoom_in'), target: () => hitRect('zoom_in') },
   ];
 

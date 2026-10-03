@@ -20,7 +20,8 @@
     // today's tasks (rolled from the pool by the date, one task per kind)
     get() {
       const d = AP.save.daily; if (d && d.day === today()) return d;
-      const day = today(), R = AP.gen.rng(day.split('-').reduce((a, v) => a * 37 + +v, 7)), pool = AP.CONFIG.daily.pool.slice(), out = [], kinds = {};
+      const day = today(), R = AP.gen.rng(day.split('-').reduce((a, v) => a * 37 + +v, 7)), out = [], kinds = {};
+      const pool = AP.CONFIG.daily.pool.filter(p => p.kind !== 'tour' || AP.CONFIG.features.tournament); // no tournament tasks while it is hidden
       while (out.length < 3 && pool.length) { const i = Math.floor(R() * pool.length), p = pool.splice(i, 1)[0]; if (kinds[p.kind]) continue; kinds[p.kind] = 1; out.push({ kind: p.kind, goal: p.goal, prog: 0, claimed: false, reward: p.reward }); }
       AP.save.daily = { day, tasks: out, chest: false }; AP.persist(); return AP.save.daily;
     },

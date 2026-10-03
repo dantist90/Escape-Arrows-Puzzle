@@ -12,6 +12,12 @@ AP.CONFIG = {
     unlockAll: false, // true = every mode / booster / section open from the start (testing only, never in a release)
   },
 
+  // ---------- lobby sections switched on / off (temporarily hidden ones keep working, they are just not shown) ----------
+  features: {
+    tournament: false, roadmap: false, room: false, // hidden for now: no lobby button / strip, no coach tips, no tasks about them
+    tickets: false, stars: false,                   // currency pills in the lobby top bar
+  },
+
   // ---------- new player ----------
   start: { coins: 100, tickets: 1, stars: 0, arrows: 0 },
 
