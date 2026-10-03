@@ -26,11 +26,29 @@
       return { w: level.w, h: level.h, arrows };
     },
     occupancy(m, alive) { const occ = new Int32Array(m.w * m.h).fill(-1); m.arrows.forEach(a => { if (alive[a.id]) a.cells.forEach(c => { occ[c[1] * m.w + c[0]] = a.id; }); }); return occ; },
-    // ray from the head: {free, dist (empty cells before the blocker or the edge), blocker id, edge (cells to leave the board)}
-    ray(m, occ, a) {
-      const h = a.cells[a.cells.length - 1]; let x = h[0] + a.dir[0], y = h[1] + a.dir[1], d = 0;
-      while (x >= 0 && y >= 0 && x < m.w && y < m.h) { const o = occ[y * m.w + x]; if (o >= 0) return { free: false, dist: d, blocker: o, edge: 0 }; d++; x += a.dir[0]; y += a.dir[1]; }
-      return { free: true, dist: d, blocker: -1, edge: d + 1 };
+    // the way out from the head: {free, dist (cells passed), blocker id, edge, cells (the cells passed), dir (heading at the end)}.
+    // m.field (optional, index -> {t: 'rot', d: [dx, dy]} | {t: 'portal', to: [x, y]}): a rotator turns the head, a portal moves it
+    // to its partner cell. ignoreOcc: the geometric way out (where items can be reached). A way that loops forever is never free.
+    ray(m, occ, a, ignoreOcc) {
+      const F = m.field, h = a.cells[a.cells.length - 1], cells = []; let dx = a.dir[0], dy = a.dir[1], x = h[0] + dx, y = h[1] + dy, guard = m.w * m.h * 3;
+      while (x >= 0 && y >= 0 && x < m.w && y < m.h) {
+        if (guard-- < 0) return { free: false, dist: cells.length, blocker: -1, edge: 0, cells, dir: [dx, dy], loop: true };
+        const i = y * m.w + x; if (!ignoreOcc && occ[i] >= 0) return { free: false, dist: cells.length, blocker: occ[i], edge: 0, cells, dir: [dx, dy] };
+        cells.push([x, y]); const f = F && F[i];
+        if (f && f.t === 'rot') { dx = f.d[0]; dy = f.d[1]; } else if (f && f.t === 'portal') { x = f.to[0]; y = f.to[1]; cells.push([x, y]); }
+        x += dx; y += dy;
+      }
+      return { free: true, dist: cells.length, blocker: -1, edge: cells.length + 1, cells, dir: [dx, dy] };
+    },
+    // can the live board still be cleared? greedy with locks: a locked arrow moves only after a flying arrow passes its key
+    solveLive(st) {
+      const m = st.m, alive = st.alive.slice(), locked = { ...(st.locked || {}) }, keys = (st.items || []).filter(i => i.kind === 'key' && !i.got).map(i => ({ ...i }));
+      let left = alive.filter(Boolean).length;
+      while (left) { const occ = B.occupancy(m, alive); let f = null, r = null;
+        for (const a of m.arrows) { if (!alive[a.id] || locked[a.id]) continue; const t = B.ray(m, occ, a); if (t.free) { f = a; r = t; break; } }
+        if (!f) return false; alive[f.id] = false; left--;
+        r.cells.forEach(c => keys.forEach(k => { if (!k.got && k.x === c[0] && k.y === c[1]) { k.got = true; locked[k.lock] = false; } })); }
+      return true;
     },
     // greedy solver: removal order, or null if the level is stuck
     solve(level) {
@@ -71,16 +89,20 @@
     },
     // board-wide color ramp (top -> bottom) from the current skin (UI bits; arrows use colorize)
     colorAt(t) { const C = AP.art.TUBE; const k = U.clamp(t, 0, 1) * (C.length - 1); const i = Math.min(C.length - 2, Math.floor(k)); return U.mix(C[i], C[i + 1], k - i); },
-    freeIds() { const st = B.cur; if (!st) return []; return st.arrows.filter(a => a.state === 'idle' && st.alive[a.id] && B.ray(st.m, st.occ, a).free).map(a => a.id); },
+    freeIds() { const st = B.cur; if (!st) return []; return st.arrows.filter(a => a.state === 'idle' && st.alive[a.id] && !(st.locked && st.locked[a.id]) && B.ray(st.m, st.occ, a).free).map(a => a.id); },
     busy() { const st = B.cur; return !!st && st.arrows.some(a => a.state === 'fly' || a.state === 'bump' || a.state === 'pop'); },
 
-    // path the arrow travels: its own cells then the ray cells (far enough to leave the screen)
-    makePath(a, extra) { const path = a.cells.map(c => [c[0], c[1]]); const h = a.cells[a.cells.length - 1];
-      for (let i = 1; i <= extra; i++) path.push([h[0] + a.dir[0] * i, h[1] + a.dir[1] * i]); return path; },
-    pointAt(path, s) { s = U.clamp(s, 0, path.length - 1); const i = Math.min(path.length - 2, Math.floor(s)), f = s - i; const a = path[i], b = path[i + 1]; return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]; },
-    // grid-space polyline of the arrow body at offset p along its path
-    bodyPts(a) { const n = a.cells.length; if (a.state === 'idle' || !a.path) return a.cells; const s0 = a.p, s1 = a.p + n - 1; const pts = [B.pointAt(a.path, s0)];
-      for (let i = Math.floor(s0) + 1; i < s1; i++) pts.push(a.path[i]); pts.push(B.pointAt(a.path, s1)); return pts; },
+    // path the arrow travels: its own cells, the traced way out (r.cells), then extra cells straight on (off the board)
+    makePath(a, r, extra) { const path = a.cells.map(c => [c[0], c[1]]).concat(r.cells.map(c => [c[0], c[1]])); let last = path[path.length - 1];
+      for (let i = 1; i <= extra; i++) { last = [last[0] + r.dir[0], last[1] + r.dir[1]]; path.push(last); } return path; },
+    // a portal jump (non-neighbour cells in a row) is instant: no sliding across the board between the two portals
+    pointAt(path, s) { s = U.clamp(s, 0, path.length - 1); const i = Math.min(path.length - 2, Math.floor(s)), f = s - i; const a = path[i], b = path[i + 1];
+      if (Math.abs(b[0] - a[0]) + Math.abs(b[1] - a[1]) > 1.5) return f < 0.5 ? a : b; return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]; },
+    // grid-space polyline of the arrow body at offset p along its path (only the part after the last portal jump is drawn)
+    bodyPts(a) { const n = a.cells.length; if (a.state === 'idle' || !a.path) return a.cells; const s0 = a.p, s1 = a.p + n - 1; let pts = [B.pointAt(a.path, s0)];
+      for (let i = Math.floor(s0) + 1; i < s1; i++) pts.push(a.path[i]); pts.push(B.pointAt(a.path, s1));
+      for (let i = pts.length - 1; i > 0; i--) if (Math.abs(pts[i][0] - pts[i - 1][0]) + Math.abs(pts[i][1] - pts[i - 1][1]) > 1.5) { pts = pts.slice(i); break; }
+      return pts.length > 1 ? pts : [pts[0], pts[0]]; },
 
     // magic wand: the arrow pops in place (it may be blocked, so it does not fly through others)
     removeArrow(id) {
@@ -91,24 +113,26 @@
     },
     // ----- actions: returns 'fly' | 'bump' | null -----
     // pass: true = fire pickup, the arrow flies through everything in its way
+    // returns 'fly' | 'bump' | 'locked' | null. A locked arrow does not move until its key is collected.
     tapArrow(id, pass) {
       const st = B.cur; const a = st && st.arrows[id]; if (!a || a.state !== 'idle' || !st.alive[id]) return null;
+      if (st.locked && st.locked[id]) { a.wob = 1; return 'locked'; }
       let r = B.ray(st.m, st.occ, a);
-      if (pass && !r.free) { const h = a.cells[a.cells.length - 1]; let x = h[0] + a.dir[0], y = h[1] + a.dir[1], d = 0; while (x >= 0 && y >= 0 && x < st.m.w && y < st.m.h) { d++; x += a.dir[0]; y += a.dir[1]; } r = { free: true, dist: d, edge: d + 1, blocker: -1 }; a.fire = true; }
+      if (pass && !r.free) { const g = B.ray(st.m, st.occ, a, true); if (!g.loop) { r = g; a.fire = true; } }
       if (r.free) {
         st.alive[id] = false; st.left--; st.occ = B.occupancy(st.m, st.alive);
         const v = st.view; const off = v ? Math.ceil(Math.hypot(v.sw, v.sh) / v.c) + 2 : 40;
-        a.path = B.makePath(a, r.edge + a.cells.length + off); a.state = 'fly'; a.t = 0; a.p = 0; a.v = 9; a.out = r.edge + a.cells.length - 1; a.end = a.path.length - a.cells.length;
+        a.path = B.makePath(a, r, a.cells.length + off); a.state = 'fly'; a.t = 0; a.p = 0; a.v = 9; a.seen = 0; a.end = a.path.length - a.cells.length;
         return 'fly';
       }
-      a.path = B.makePath(a, r.dist + 2); a.state = 'bump'; a.t = 0; a.p = 0; a.reach = r.dist + 0.32; a.blocker = r.blocker; a.hit = false;
+      a.path = B.makePath(a, r, 2); a.state = 'bump'; a.t = 0; a.p = 0; a.reach = r.dist + 0.32; a.blocker = r.blocker; a.hit = false;
       return 'bump';
     },
     // per-frame motion; calls onHit(a) at the bump peak, onGone(a) when a flying arrow leaves the screen
     update(dt, ev = {}) {
       const st = B.cur; if (!st) return; st.shake = Math.max(0, st.shake - dt * 3);
       for (const a of st.arrows) {
-        a.flash = Math.max(0, a.flash - dt * 1.6); a.glow = Math.max(0, a.glow - dt);
+        a.flash = Math.max(0, a.flash - dt * 1.6); a.glow = Math.max(0, a.glow - dt); a.wob = Math.max(0, (a.wob || 0) - dt * 2.5);
         if (a.state === 'fly') { a.t += dt; a.v += dt * 70; a.p += a.v * dt;
           // cells the head has reached on its ray (past its own body): pickups there are collected (ev.onCell)
           const hi = Math.min(a.path.length - 1, Math.floor(a.p + a.cells.length - 1 + 0.5)); for (let i = Math.max(a.cells.length, a.seen || 0); i <= hi; i++) { const c = a.path[i]; if (ev.onCell && c[0] >= 0 && c[1] >= 0 && c[0] < st.m.w && c[1] < st.m.h) ev.onCell(a, c); } a.seen = hi + 1;
@@ -169,7 +193,8 @@
       for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { if (st.mask && !st.mask[y * st.m.w + x]) continue; ctx.beginPath(); ctx.arc(v.ox + (x + 0.5) * v.c, v.oy + (y + 0.5) * v.c, dr, 0, Math.PI * 2); ctx.fill(); }
       if (AP.pickups) AP.pickups.draw(ctx, st, v); // coins and power-ups on empty cells, under the arrows
       // idle arrows under moving ones
-      for (const a of st.arrows) if (a.state === 'idle' && st.alive[a.id]) B.drawArrow(ctx, a, v);
+      for (const a of st.arrows) if (a.state === 'idle' && st.alive[a.id]) { if (a.wob) { ctx.save(); ctx.translate(Math.sin(a.wob * 40) * a.wob * 4 * AP.ui.scale, 0); B.drawArrow(ctx, a, v); ctx.restore(); } else B.drawArrow(ctx, a, v); }
+      if (AP.pickups) AP.pickups.drawLocks(ctx, st, v); // padlocks on locked arrows
       for (const a of st.arrows) if (a.state === 'bump') B.drawArrow(ctx, a, v);
       for (const a of st.arrows) if (a.state === 'fly') B.drawArrow(ctx, a, v);
       for (const a of st.arrows) if (a.state === 'pop') { ctx.save(); ctx.globalAlpha = Math.max(0, 1 - a.t / 0.35); a.glow = 1; B.drawArrow(ctx, a, v); ctx.restore(); }

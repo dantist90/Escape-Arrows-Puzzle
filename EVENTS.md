@@ -43,7 +43,7 @@
 | `tournament / level-<k> / start\|complete\|fail` | уровень k (1..5) забега: открыт / пройден / сдан (сердца кончились или выход) | 5 |
 | `roadmap / milestone-<k> / unlocked` | награда Roadmap получена | 5 |
 | `room / step-<k> / unlocked` | шаг Комнаты куплен (k — сквозной номер шага по всем комнатам) | 6 |
-| `pickup / coin\|bomb\|fire\|heart\|lightning / collect` | стрелка пролетела через предмет на поле и собрала его | 9 |
+| `pickup / coin\|bomb\|fire\|heart\|lightning\|key / collect` | стрелка пролетела через предмет на поле и собрала его (ключ открывает замок своего цвета) | 9 |
 | `replay / <N> / start\|complete\|fail` | переигровка уровня N из Альбома (свой исход на попытку) | 6 |
 | `cosmetic / <id> / unlocked\|equip` | скин стрелок или фон куплен / получен с Roadmap; выбран | 6 |
 | `daily / task-<kind> / complete` | награда за задание дня забрана (kind: win, stars3, arrows, booster, tour) | 6 |

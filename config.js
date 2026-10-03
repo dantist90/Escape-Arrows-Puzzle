@@ -37,11 +37,12 @@ AP.CONFIG = {
   // A new kind opens every `every` levels starting at `firstLevel`, in `order`: coin 3, bomb 7, fire 11, heart 15, lightning 19.
   pickups: {
     firstLevel: 3, every: 4,
-    order: ['coin', 'bomb', 'fire', 'heart', 'lightning'],
+    order: ['coin', 'bomb', 'fire', 'heart', 'lightning', 'key', 'rotator', 'portal'], // key = lock & key (23), rotator (27), portal (31)
     coinValue: 25,                 // coins per collected coin (they fly into the coins pill)
     coins: [1, 3],                 // coins per level (min, max), on cells some arrow will fly over
     specialChance: 0.7,            // chance of one special item (bomb / fire / heart / lightning) on a level once opened
     bombRadius: 1,                 // bomb: arrows with a cell within this many cells (square) pop
+    locks: [1, 2], rotators: [1, 2], portals: 1, // per level once opened (placed only where the level stays solvable)
   },
 
   // ---------- boosters (stage 3) ----------

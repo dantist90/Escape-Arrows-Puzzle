@@ -82,6 +82,7 @@
       it.got = true; const st = B().cur, P = AP.board.toScreen([it.x, it.y]), c = AP.CONFIG.pickups; AP.poki.measure('pickup', it.kind, 'collect');
       if (it.kind === 'coin') { S.flyCoins.push({ x0: P[0], y0: P[1], t: 0, n: c.coinValue }); AP.audio.coin(); return; }
       AP.audio.sparkle(); S.fx.push({ kind: it.kind, x: P[0], y: P[1], t: 0, row: it.y });
+      if (it.kind === 'key') { st.locked[it.lock] = false; const la = st.arrows[it.lock]; if (la) { la.glow = 1; const lp = AP.board.screenOf(it.lock); S.fx.push({ kind: 'key', x: lp[0], y: lp[1], t: 0 }); } return; }
       if (it.kind === 'heart') { S.hearts++; S.maxHearts = Math.max(S.maxHearts, S.hearts); S.heartPop = -1; }
       else if (it.kind === 'fire') S.fire = true;
       else if (it.kind === 'bomb' || it.kind === 'lightning') {
@@ -118,6 +119,7 @@
       if (AP.game.modal) return; const a = B().pick(x, y); if (!a) return;
       if (S.wand) { if (AP.boosters.use('wand') && B().removeArrow(a.id)) { S.wand = false; AP.audio.sparkle(); } return; }
       const r = B().tapArrow(a.id, S.fire); if (S.fire && B().cur.arrows[a.id].fire) { S.fire = false; AP.audio.whoosh(); }
+      if (r === 'locked') { AP.audio.tick(); AP.ui.toast(AP.t('need_key')); return; } // no heart lost: it just wobbles
       if (r === 'fly') { S.combo++; S.comboT = 1.2; AP.audio.fly(S.combo); }
       else if (r === 'bump') AP.audio.tick();
     },

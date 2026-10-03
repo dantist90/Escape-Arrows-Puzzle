@@ -208,6 +208,24 @@ try {
     if (blk) { await page.evaluate((p) => QA.tapAt(p[0], p[1]), blk.at); await step(page, 1.2); st = await state(page);
       check('fire: a blocked arrow flies through, no heart lost, charge used', st.board.left === l0 - 1 && st.board.hearts === h0 && !st.board.fire, `left ${l0} -> ${st.board.left}, hearts ${h0} -> ${st.board.hearts}`); } }
   { if ((await state(page)).board.left > 0) { st = await shoot('lightning'); check('lightning: collected', st.events.includes('pickup / lightning / collect')); } }
+  // ----- lock & key, rotator, portal (levels 23 / 27 / 31): placed only where the board stays solvable -----
+  { const mech = await page.evaluate(() => { const out = { levels: 0, solvable: 0, locks: 0, rot: 0, portal: 0 };
+      for (let n = 23; n <= 80; n++) { const lv = AP.levelData(n); const st = AP.board.start(lv); AP.pickups.place(st, n, n); out.levels++;
+        if (AP.board.solveLive(st)) out.solvable++; if (Object.keys(st.locked).length) out.locks++;
+        const f = Object.values(st.m.field); if (f.some((x) => x.t === 'rot')) out.rot++; if (f.some((x) => x.t === 'portal')) out.portal++; }
+      AP.board.cur = null; return out; });
+    check('levels 23-80: every board with mechanics stays solvable', mech.solvable === mech.levels, JSON.stringify(mech));
+    check('locks / rotators / portals show up on most levels where they are open', mech.locks > mech.levels * 0.6 && mech.rot > 30 && mech.portal > 30, JSON.stringify(mech)); }
+  await page.evaluate(() => { ['key', 'rotator', 'portal'].forEach((k) => { AP.save.seen['coach_pk_' + k] = 1; }); AP.save.level = 40; AP.game.modal = null; QA.goto('level', { n: 40 }); }); await step(page, 0.3);
+  st = await state(page);
+  await page.screenshot({ path: path.join(shots, 'mechanics_390x844.png') });
+  { const lk = st.board.arrows.find((a) => a.locked), h0 = st.board.hearts;
+    check('level 40 has a locked arrow', !!lk);
+    if (lk) { await page.evaluate((p) => QA.tapAt(p[0], p[1]), lk.at); await step(page, 0.5); const s2 = await state(page);
+      check('tap on a locked arrow: it stays, no heart lost', s2.board.hearts === h0 && s2.board.arrows.some((a) => a.id === lk.id)); } }
+  await page.evaluate(() => { AP.save.boosters.hint = 0; }); st = await clear();
+  check('level 40 with lock / rotator / portal cleared by taps only', st.modal === 'win' && st.board.left === 0 && st.events.includes('pickup / key / collect'), `${st.modal} left ${st.board && st.board.left}`);
+  await page.evaluate(() => { AP.game.modal = null; }); await step(page, 0.1);
   check('pickup unlocks: coin 3, bomb 7, fire 11, heart 15, lightning 19', await page.evaluate(() => ['coin', 'bomb', 'fire', 'heart', 'lightning'].map((k) => AP.pickups.unlockOf(k)).join() === '3,7,11,15,19'));
   check('no pickups on levels 1-2', await page.evaluate(() => { const st = { m: AP.board.build(AP.LEVELS[1]), items: [] }; st.occ = AP.board.occupancy(st.m, st.m.arrows.map(() => true)); AP.pickups.place(st, 2, 2); return st.items.length === 0; }));
   // ----- stage 5: tournament (free ticket on unlock, 5 levels vs 19 AI, results, Roadmap) -----
